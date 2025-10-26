@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成语接龙 - 汪琪凯的学习天地</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="theme.css">
+    <script src="theme.js" defer></script>
+    <style>
+        * {
+            font-family: 'Noto Sans SC', sans-serif;
+        }
+        
+        .idiom-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .idiom-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        
+        .idiom-card.current {
+            border: 3px solid #F59E0B;
+            background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+            transform: scale(1.05);
+        }
+        
+        .chain-link {
+            position: relative;
+            display: inline-block;
+            margin: 0 8px;
+        }
+        
+        .chain-link::after {
+            content: '→';
+            position: absolute;
+            right: -20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6B7280;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .chain-link:last-child::after {
+            display: none;
+        }
+        
+        .input-field {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            border: 2px solid #E5E7EB;
+            border-radius: 12px;
+            padding: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .input-field:focus {
+            border-color: #4A90E2;
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+            outline: none;
+        }
+        
+        .success-animation {
+            animation: bounce 0.6s ease-in-out;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+        
+        .floating-hint {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.35s;
+        }
+        
+        .celebration-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body class="tw-theme bg-gradient-to-br from-orange-50 to-yellow-50 min-h-screen">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <button onclick="goBack()" class="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
+                        ← 返回
+                    </button>
+                    <h1 class="text-2xl font-bold text-gray-800">成语接龙</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm text-gray-600">
+                        进度: <span class="font-bold text-blue-600" id="progress-text">0/5</span>
+                    </div>
+                    <button onclick="goHome()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        主页
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <!-- 游戏说明 -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">游戏规则</h2>
+                    <p class="text-gray-600 mb-4">
+                        系统会给出一个成语，你需要接一个以该成语最后一个字开头的新成语。<br>
+                        <span class="text-orange-600 font-medium">提示：允许同音不同字，降低难度</span>
+                    </p>
+                    <div class="flex items-center space-x-4 text-sm">
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                            <span>已完成: <span id="completed-count">0</span></span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                            <span>目标: 5个成语</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 进度环 -->
+                <div class="relative w-24 h-24">
+                    <svg class="progress-ring w-24 h-24" viewBox="0 0 36 36">
+                        <path class="progress-ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                              fill="none" stroke="#E5E7EB" stroke-width="3"/>
+                        <path class="progress-ring-circle" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                              fill="none" stroke="#4A90E2" stroke-width="3" stroke-dasharray="100, 100" stroke-dashoffset="100"/>
+                    </svg>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <span class="text-lg font-bold text-blue-600" id="progress-percentage">0%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 当前成语展示 -->
+        <div class="bg-white rounded-2xl shadow-lg p-8 mb-8 text-center">
+            <h3 class="text-xl font-bold text-gray-800 mb-6">当前成语</h3>
+            <div class="flex items-center justify-center mb-6">
+                <div class="idiom-card current bg-gradient-to-r from-yellow-100 to-orange-100 rounded-2xl p-8 shadow-lg" id="current-idiom">
+                    <div class="text-4xl font-bold text-gray-800 mb-2" id="current-idiom-text">一心一意</div>
+                    <div class="text-lg text-gray-600" id="current-idiom-pinyin">yī xīn yī yì</div>
+                </div>
+            </div>
+            
+            <div class="text-gray-600 mb-4">
+                请接以 <span class="font-bold text-orange-600" id="last-char">意</span> 开头的成语
+                <span class="text-sm text-gray-500 block mt-1">(或同音字 yì)</span>
+            </div>
+        </div>
+
+        <!-- 接龙链展示 -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">接龙链条</h3>
+            <div class="flex items-center justify-center flex-wrap" id="idiom-chain">
+                <div class="chain-link">
+                    <div class="idiom-card bg-blue-100 text-blue-800 px-4 py-2 rounded-lg font-medium">
+                        一心一意
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="bg-white rounded-2xl shadow-lg p-8 mb-8">
+            <h3 class="text-xl font-bold text-gray-800 mb-6 text-center">输入你的答案</h3>
+            <div class="max-w-md mx-auto">
+                <input type="text" 
+                       class="input-field w-full mb-4" 
+                       id="idiom-input" 
+                       placeholder="请输入成语..."
+                       maxlength="4">
+                
+                <div class="flex items-center justify-center space-x-4 mb-4">
+                    <button onclick="submitIdiom()" class="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                        提交
+                    </button>
+                    <button onclick="getHint()" class="px-8 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors font-medium">
+                        提示
+                    </button>
+                    <button onclick="skipIdiom()" class="px-8 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium">
+                        跳过
+                    </button>
+                </div>
+                
+                <div class="text-center">
+                    <div class="text-sm text-gray-500 mb-2">输入时自动显示拼音</div>
+                    <div class="text-lg font-medium text-gray-700" id="input-pinyin"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 提示面板 -->
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8 hidden" id="hint-panel">
+            <div class="flex items-center">
+                <span class="text-yellow-600 mr-2">💡</span>
+                <div>
+                    <div class="font-medium text-yellow-800">提示</div>
+                    <div class="text-yellow-700" id="hint-text"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 成语解释面板 -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-8 hidden" id="explanation-panel">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">成语解释</h3>
+            <div class="space-y-4" id="explanation-content">
+                <!-- 成语解释内容 -->
+            </div>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="bg-white rounded-2xl shadow-lg p-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">游戏统计</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-blue-600" id="total-chains">0</div>
+                    <div class="text-sm text-gray-500">总接龙次数</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-green-600" id="success-rate">0%</div>
+                    <div class="text-sm text-gray-500">成功率</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-orange-600" id="best-chain">0</div>
+                    <div class="text-sm text-gray-500">最长接龙</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-purple-600" id="today-score">0</div>
+                    <div class="text-sm text-gray-500">今日得分</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 庆祝动画容器 -->
+    <div class="celebration-particles" id="celebration-container"></div>
+    
+    <!-- 浮动提示 -->
+    <div class="floating-hint" id="floating-hint"></div>
+
+    <script>
+        // 成语接龙游戏核心逻辑
+        let currentChain = ['一心一意'];
+        let completedCount = 0;
+        let gameStats = {
+            totalAttempts: 0,
+            successfulChains: 0,
+            bestChain: 0,
+            todayScore: 0
+        };
+        
+        // 成语数据库（三年级水平）
+        const idiomDatabase = {
+            '一心一意': {
+                pinyin: 'yī xīn yī yì',
+                meaning: '形容做事专心一致，不分心。',
+                example: '他一心一意地学习，成绩进步很快。',
+                lastChar: '意',
+                lastCharPinyin: 'yì'
+            },
+            '意气风发': {
+                pinyin: 'yì qì fēng fā',
+                meaning: '形容精神振奋，气概豪迈。',
+                example: '青年人应该意气风发，勇于创新。',
+                lastChar: '发',
+                lastCharPinyin: 'fā'
+            },
+            '发奋图强': {
+                pinyin: 'fā fèn tú qiáng',
+                meaning: '下定决心，努力变得强大。',
+                example: '我们要发奋图强，为祖国建设贡献力量。',
+                lastChar: '强',
+                lastCharPinyin: 'qiáng'
+            },
+            '强词夺理': {
+                pinyin: 'qiǎng cí duó lǐ',
+                meaning: '本来没有理，硬说成有理。',
+                example: '明明是他错了，却还要强词夺理。',
+                lastChar: '理',
+                lastCharPinyin: 'lǐ'
+            },
+            '理直气壮': {
+                pinyin: 'lǐ zhí qì zhuàng',
+                meaning: '理由充分，说话就有气势。',
+                example: '他理直气壮地陈述了自己的观点。',
+                lastChar: '壮',
+                lastCharPinyin: 'zhuàng'
+            },
+            '壮志凌云': {
+                pinyin: 'zhuàng zhì líng yún',
+                meaning: '形容理想宏伟远大。',
+                example: '青年人要有壮志凌云的抱负。',
+                lastChar: '云',
+                lastCharPinyin: 'yún'
+            },
+            '云开见日': {
+                pinyin: 'yún kāi jiàn rì',
+                meaning: '比喻黑暗已经过去，光明已经到来。',
+                example: '经过努力，终于云开见日，取得了成功。',
+                lastChar: '日',
+                lastCharPinyin: 'rì'
+            },
+            '日新月异': {
+                pinyin: 'rì xīn yuè yì',
+                meaning: '形容发展变化很快，不断出现新事物。',
+                example: '科技发展日新月异，我们要不断学习。',
+                lastChar: '异',
+                lastCharPinyin: 'yì'
+            },
+            '异想天开': {
+                pinyin: 'yì xiǎng tiān kāi',
+                meaning: '形容想法离奇，不切实际。',
+                example: '他的想法虽然异想天开，但很有创意。',
+                lastChar: '开',
+                lastCharPinyin: 'kāi'
+            },
+            '开门见山': {
+                pinyin: 'kāi mén jiàn shān',
+                meaning: '比喻说话直截了当，不绕弯子。',
+                example: '他开门见山地说明了来意。',
+                lastChar: '山',
+                lastCharPinyin: 'shān'
+            },
+            '山清水秀': {
+                pinyin: 'shān qīng shuǐ xiù',
+                meaning: '形容风景优美。',
+                example: '这里的景色山清水秀，令人流连忘返。',
+                lastChar: '秀',
+                lastCharPinyin: 'xiù'
+            },
+            '秀外慧中': {
+                pinyin: 'xiù wài huì zhōng',
+                meaning: '外表秀丽，内心聪明。',
+                example: '她秀外慧中，是个难得的人才。',
+                lastChar: '中',
+                lastCharPinyin: 'zhōng'
+            },
+            '中流砥柱': {
+                pinyin: 'zhōng liú dǐ zhù',
+                meaning: '比喻坚固的、能起支柱作用的人或集体。',
+                example: '他是我们团队的中流砥柱。',
+                lastChar: '柱',
+                lastCharPinyin: 'zhù'
+            },
+            '柱石之臣': {
+                pinyin: 'zhù shí zhī chén',
+                meaning: '比喻担当重任的大臣。',
+                example: '诸葛亮是蜀国的柱石之臣。',
+                lastChar: '臣',
+                lastCharPinyin: 'chén'
+            },
+            '臣服天下': {
+                pinyin: 'chén fú tiān xià',
+                meaning: '使天下人归服。',
+                example: '以德治国，方能臣服天下。',
+                lastChar: '下',
+                lastCharPinyin: 'xià'
+            }
+        };
+
+        // 同音字映射
+        const homophoneMap = {
+            'yì': ['意', '义', '异', '议', '益'],
+            'fā': ['发', '法', '罚'],
+            'qiáng': ['强', '墙', '抢'],
+            'lǐ': ['理', '里', '礼', '李'],
+            'zhuàng': ['壮', '状', '撞'],
+            'yún': ['云', '匀', '运'],
+            'rì': ['日', '力', '利'],
+            'kāi': ['开', '凯', '慨'],
+            'shān': ['山', '删', '衫'],
+            'xiù': ['秀', '绣', '袖'],
+            'zhōng': ['中', '忠', '终'],
+            'zhù': ['柱', '住', '注'],
+            'chén': ['臣', '辰', '晨'],
+            'xià': ['下', '夏', '吓']
+        };
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadGameStats();
+            updateCurrentIdiom();
+            setupEventListeners();
+            updateProgress();
+        });
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            const input = document.getElementById('idiom-input');
+            
+            // 输入事件
+            input.addEventListener('input', function() {
+                updatePinyinDisplay();
+                if (this.value.length === 4) {
+                    // 自动提交
+                    setTimeout(() => {
+                        submitIdiom();
+                    }, 500);
+                }
+            });
+            
+            // 回车键提交
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    submitIdiom();
+                }
+            });
+            
+            // 点击当前成语显示解释
+            document.getElementById('current-idiom').addEventListener('click', function() {
+                showIdiomExplanation(currentChain[currentChain.length - 1]);
+            });
+        }
+
+        // 更新当前成语显示
+        function updateCurrentIdiom() {
+            const currentIdiom = currentChain[currentChain.length - 1];
+            const idiomInfo = idiomDatabase[currentIdiom];
+            
+            if (idiomInfo) {
+                document.getElementById('current-idiom-text').textContent = currentIdiom;
+                document.getElementById('current-idiom-pinyin').textContent = idiomInfo.pinyin;
+                document.getElementById('last-char').textContent = idiomInfo.lastChar;
+            }
+        }
+
+        // 更新拼音显示
+        function updatePinyinDisplay() {
+            const input = document.getElementById('idiom-input');
+            const pinyinDisplay = document.getElementById('input-pinyin');
+            
+            if (input.value.length === 4) {
+                // 简单拼音转换（实际应用中需要更完整的拼音库）
+                const pinyin = convertToPinyin(input.value);
+                pinyinDisplay.textContent = pinyin;
+            } else {
+                pinyinDisplay.textContent = '';
+            }
+        }
+
+        // 简化的拼音转换
+        function convertToPinyin(chinese) {
+            // 这里使用简化的拼音映射，实际应用中需要完整的拼音库
+            const pinyinMap = {
+                '一': 'yī', '心': 'xīn', '一': 'yī', '意': 'yì',
+                '意': 'yì', '气': 'qì', '风': 'fēng', '发': 'fā',
+                '发': 'fā', '奋': 'fèn', '图': 'tú', '强': 'qiáng',
+                '强': 'qiáng', '词': 'cí', '夺': 'duó', '理': 'lǐ',
+                '理': 'lǐ', '直': 'zhí', '气': 'qì', '壮': 'zhuàng',
+                '壮': 'zhuàng', '志': 'zhì', '凌': 'líng', '云': 'yún',
+                '云': 'yún', '开': 'kāi', '见': 'jiàn', '日': 'rì',
+                '日': 'rì', '新': 'xīn', '月': 'yuè', '异': 'yì',
+                '异': 'yì', '想': 'xiǎng', '天': 'tiān', '开': 'kāi',
+                '开': 'kāi', '门': 'mén', '见': 'jiàn', '山': 'shān',
+                '山': 'shān', '清': 'qīng', '水': 'shuǐ', '秀': 'xiù',
+                '秀': 'xiù', '外': 'wài', '慧': 'huì', '中': 'zhōng',
+                '中': 'zhōng', '流': 'liú', '砥': 'dǐ', '柱': 'zhù',
+                '柱': 'zhù', '石': 'shí', '之': 'zhī', '臣': 'chén',
+                '臣': 'chén', '服': 'fú', '天': 'tiān', '下': 'xià'
+            };
+            
+            return chinese.split('').map(char => pinyinMap[char] || char).join(' ');
+        }
+
+        // 提交成语
+        function submitIdiom() {
+            const input = document.getElementById('idiom-input');
+            const userInput = input.value.trim();
+            
+            if (userInput.length !== 4) {
+                showMessage('请输入4个字的成语！', 'warning');
+                return;
+            }
+            
+            gameStats.totalAttempts++;
+            
+            // 检查是否是有效的成语
+            if (isValidIdiom(userInput)) {
+                // 检查是否符合接龙规则
+                if (isValidChain(userInput)) {
+                    addToChain(userInput);
+                    gameStats.successfulChains++;
+                    gameStats.todayScore += 10;
+                    
+                    // 成功动画
+                    showSuccessAnimation();
+                    
+                    // 检查是否完成
+                    if (currentChain.length - 1 >= 5) {
+                        completeGame();
+                    }
+                } else {
+                    showMessage('成语不符合接龙规则，请重新输入！', 'error');
+                    showHint();
+                }
+            } else {
+                showMessage('这个成语不在我们的数据库中，请试试其他成语！', 'error');
+                showHint();
+            }
+            
+            updateStats();
+            updateProgress();
+        }
+
+        // 检查是否是有效的成语
+        function isValidIdiom(idiom) {
+            return idiomDatabase[idiom] !== undefined;
+        }
+
+        // 检查是否符合接龙规则
+        function isValidChain(newIdiom) {
+            const currentIdiom = currentChain[currentChain.length - 1];
+            const currentInfo = idiomDatabase[currentIdiom];
+            const newInfo = idiomDatabase[newIdiom];
+            
+            if (!currentInfo || !newInfo) return false;
+            
+            // 检查最后一个字和第一个字是否相同或同音
+            const lastChar = currentInfo.lastChar;
+            const lastCharPinyin = currentInfo.lastCharPinyin;
+            const firstChar = newIdiom[0];
+            const firstCharPinyin = newInfo.pinyin.split(' ')[0];
+            
+            // 检查同音字
+            const homophones = homophoneMap[lastCharPinyin] || [];
+            
+            return firstChar === lastChar || 
+                   firstCharPinyin === lastCharPinyin ||
+                   homophones.includes(firstChar);
+        }
+
+        // 添加到接龙链
+        function addToChain(idiom) {
+            currentChain.push(idiom);
+            
+            // 更新接龙链显示
+            updateChainDisplay();
+            
+            // 更新当前成语
+            updateCurrentIdiom();
+            
+            // 清空输入
+            document.getElementById('idiom-input').value = '';
+            document.getElementById('input-pinyin').textContent = '';
+            
+            completedCount++;
+        }
+
+        // 更新接龙链显示
+        function updateChainDisplay() {
+            const container = document.getElementById('idiom-chain');
+            container.innerHTML = '';
+            
+            currentChain.forEach((idiom, index) => {
+                const linkDiv = document.createElement('div');
+                linkDiv.className = 'chain-link';
+                
+                const colorClass = index === currentChain.length - 1 ? 'bg-orange-100 text-orange-800' : 
+                                 index >= currentChain.length - 3 ? 'bg-blue-100 text-blue-800' : 
+                                 'bg-gray-100 text-gray-800';
+                
+                linkDiv.innerHTML = `
+                    <div class="idiom-card ${colorClass} px-4 py-2 rounded-lg font-medium cursor-pointer"
+                         onclick="showIdiomExplanation('${idiom}')">
+                        ${idiom}
+                    </div>
+                `;
+                
+                container.appendChild(linkDiv);
+            });
+            
+            // 添加动画
+            anime({
+                targets: '.chain-link:last-child',
+                scale: [0, 1],
+                rotateY: [180, 0],
+                duration: 600,
+                easing: 'easeOutElastic(1, .8)'
+            });
+        }
+
+        // 显示成语解释
+        function showIdiomExplanation(idiom) {
+            const info = idiomDatabase[idiom];
+            if (!info) return;
+            
+            const panel = document.getElementById('explanation-panel');
+            const content = document.getElementById('explanation-content');
+            
+            content.innerHTML = `
+                <div class="bg-blue-50 rounded-lg p-4">
+                    <h4 class="text-xl font-bold text-blue-800 mb-2">${idiom}</h4>
+                    <div class="text-blue-600 mb-2">${info.pinyin}</div>
+                    <div class="text-gray-700 mb-3">
+                        <strong>释义：</strong>${info.meaning}
+                    </div>
+                    <div class="text-gray-600">
+                        <strong>例句：</strong>${info.example}
+                    </div>
+                </div>
+            `;
+            
+            panel.classList.remove('hidden');
+            
+            // 添加动画
+            anime({
+                targets: panel,
+                opacity: [0, 1],
+                translateY: [20, 0],
+                duration: 300,
+                easing: 'easeOutQuart'
+            });
+        }
+
+        // 获取提示
+        function getHint() {
+            const currentIdiom = currentChain[currentChain.length - 1];
+            const currentInfo = idiomDatabase[currentIdiom];
+            
+            if (!currentInfo) return;
+            
+            const lastCharPinyin = currentInfo.lastCharPinyin;
+            const homophones = homophoneMap[lastCharPinyin] || [];
+            
+            // 找到以这些字开头的成语
+            const possibleIdioms = Object.keys(idiomDatabase).filter(idiom => {
+                const firstChar = idiom[0];
+                return firstChar === currentInfo.lastChar || homophones.includes(firstChar);
+            });
+            
+            if (possibleIdioms.length > 0) {
+                const hint = possibleIdioms[Math.floor(Math.random() * possibleIdioms.length)];
+                const hintChar = hint[0];
+                
+                document.getElementById('hint-text').textContent = 
+                    `试试以"${hintChar}"开头的成语，比如：${hint[0]}${hint[1]}${hint[2]}_`;
+                document.getElementById('hint-panel').classList.remove('hidden');
+                
+                // 3秒后自动隐藏
+                setTimeout(() => {
+                    document.getElementById('hint-panel').classList.add('hidden');
+                }, 5000);
+            }
+        }
+
+        // 跳过当前成语
+        function skipIdiom() {
+            // 随机选择一个有效的下一个成语
+            const currentIdiom = currentChain[currentChain.length - 1];
+            const currentInfo = idiomDatabase[currentIdiom];
+            
+            if (!currentInfo) return;
+            
+            const lastCharPinyin = currentInfo.lastCharPinyin;
+            const homophones = homophoneMap[lastCharPinyin] || [];
+            
+            const possibleIdioms = Object.keys(idiomDatabase).filter(idiom => {
+                const firstChar = idiom[0];
+                return firstChar === currentInfo.lastChar || homophones.includes(firstChar);
+            });
+            
+            if (possibleIdioms.length > 0) {
+                const nextIdiom = possibleIdioms[Math.floor(Math.random() * possibleIdioms.length)];
+                addToChain(nextIdiom);
+                
+                showMessage(`跳过成功！系统为你选择了：${nextIdiom}`, 'info');
+                
+                // 检查是否完成
+                if (currentChain.length - 1 >= 5) {
+                    completeGame();
+                }
+                
+                updateStats();
+                updateProgress();
+            }
+        }
+
+        // 显示成功动画
+        function showSuccessAnimation() {
+            // 五彩纸屑效果
+            createConfetti();
+            
+            // 卡片动画
+            anime({
+                targets: '#current-idiom',
+                scale: [1, 1.1, 1],
+                duration: 600,
+                easing: 'easeInOutQuart'
+            });
+            
+            // 成功消息
+            showMessage('太棒了！接龙成功！+10分', 'success');
+        }
+
+        // 创建五彩纸屑效果
+        function createConfetti() {
+            const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4'];
+            
+            for (let i = 0; i < 30; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.position = 'fixed';
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.top = '-10px';
+                confetti.style.width = '8px';
+                confetti.style.height = '8px';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.borderRadius = '50%';
+                confetti.style.pointerEvents = 'none';
+                confetti.style.zIndex = '1000';
+                
+                document.getElementById('celebration-container').appendChild(confetti);
+                
+                anime({
+                    targets: confetti,
+                    translateY: '100vh',
+                    translateX: (Math.random() - 0.5) * 200,
+                    rotate: Math.random() * 360,
+                    duration: Math.random() * 2000 + 1000,
+                    easing: 'easeInQuad',
+                    complete: () => {
+                        if (confetti.parentNode) {
+                            confetti.parentNode.removeChild(confetti);
+                        }
+                    }
+                });
+            }
+        }
+
+        // 完成游戏
+        function completeGame() {
+            // 保存数据
+            const today = new Date().toISOString().split('T')[0];
+            const userData = JSON.parse(localStorage.getItem('wangqikai_data') || '{}');
+            if (!userData.checkInData) userData.checkInData = {};
+            
+            userData.checkInData[today] = {
+                ...userData.checkInData[today],
+                chinese: {
+                    completed: true,
+                    time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+                    progress: 5,
+                    chain: currentChain,
+                    score: gameStats.todayScore
+                }
+            };
+            
+            localStorage.setItem('wangqikai_data', JSON.stringify(userData));
+            
+            // 显示完成动画
+            showCompletionAnimation();
+        }
+
+        // 显示完成动画
+        function showCompletionAnimation() {
+            const completion = document.createElement('div');
+            completion.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            completion.innerHTML = `
+                <div class="bg-white rounded-2xl p-8 text-center max-w-md mx-4">
+                    <div class="text-6xl mb-4">🏆</div>
+                    <h2 class="text-3xl font-bold text-green-600 mb-4">成语接龙完成！</h2>
+                    <p class="text-gray-600 mb-6">恭喜你成功接龙了5个成语！</p>
+                    
+                    <div class="bg-yellow-50 rounded-lg p-4 mb-6">
+                        <div class="text-lg font-bold text-yellow-800 mb-2">你的接龙链：</div>
+                        <div class="text-sm text-yellow-700">
+                            ${currentChain.join(' → ')}
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600">${currentChain.length - 1}</div>
+                            <div class="text-sm text-gray-500">接龙成功</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600">${gameStats.todayScore}</div>
+                            <div class="text-sm text-gray-500">获得分数</div>
+                        </div>
+                    </div>
+                    
+                    <button onclick="goBack()" class="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                        返回主页
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(completion);
+            
+            // 庆祝动画
+            createConfetti();
+        }
+
+        // 更新进度
+        function updateProgress() {
+            const progress = (completedCount / 5) * 100;
+            const circumference = 2 * Math.PI * 15.9155;
+            const offset = circumference - (progress / 100) * circumference;
+            
+            document.querySelector('.progress-ring-circle').style.strokeDashoffset = offset;
+            document.getElementById('progress-percentage').textContent = Math.round(progress) + '%';
+            document.getElementById('progress-text').textContent = `${completedCount}/5`;
+            document.getElementById('completed-count').textContent = completedCount;
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            document.getElementById('total-chains').textContent = gameStats.successfulChains;
+            
+            const successRate = gameStats.totalAttempts > 0 ? 
+                Math.round((gameStats.successfulChains / gameStats.totalAttempts) * 100) : 0;
+            document.getElementById('success-rate').textContent = successRate + '%';
+            
+            document.getElementById('best-chain').textContent = Math.max(gameStats.bestChain, currentChain.length - 1);
+            document.getElementById('today-score').textContent = gameStats.todayScore;
+        }
+
+        // 显示消息
+        function showMessage(message, type = 'info') {
+            const colors = {
+                info: 'bg-blue-100 text-blue-800 border-blue-200',
+                success: 'bg-green-100 text-green-800 border-green-200',
+                warning: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                error: 'bg-red-100 text-red-800 border-red-200'
+            };
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `fixed top-4 right-4 z-50 p-4 rounded-lg border ${colors[type]} max-w-sm`;
+            messageDiv.textContent = message;
+            
+            document.body.appendChild(messageDiv);
+            
+            anime({
+                targets: messageDiv,
+                translateX: [300, 0],
+                opacity: [0, 1],
+                duration: 300,
+                complete: () => {
+                    setTimeout(() => {
+                        anime({
+                            targets: messageDiv,
+                            translateX: [0, 300],
+                            opacity: [1, 0],
+                            duration: 300,
+                            complete: () => {
+                                document.body.removeChild(messageDiv);
+                            }
+                        });
+                    }, 3000);
+                }
+            });
+        }
+
+        // 加载游戏统计
+        function loadGameStats() {
+            const stats = JSON.parse(localStorage.getItem('chinese_game_stats') || '{}');
+            gameStats = {
+                ...gameStats,
+                ...stats
+            };
+            updateStats();
+        }
+
+        // 保存游戏统计
+        function saveGameStats() {
+            localStorage.setItem('chinese_game_stats', JSON.stringify(gameStats));
+        }
+
+        // 导航函数
+        function goBack() {
+            saveGameStats();
+            window.history.back();
+        }
+
+        function goHome() {
+            saveGameStats();
+            window.location.href = 'index.html';
+        }
+    </script>
+<script src="sessions.js"></script>
+</body>
+</html>
+
+
+        <!-- OCR拍照与题库弹窗（语文） -->
+        <div id="ocr-modal-cn" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold">拍照识别试题（语文）</h3>
+                    <button id="close-ocr-cn" class="text-gray-500 hover:text-gray-700">✖</button>
+                </div>
+                <div class="space-y-4">
+                    <input id="ocr-file-cn" type="file" accept="image/*" capture="environment" class="w-full" />
+                    <div id="ocr-preview-cn" class="hidden">
+                        <img id="ocr-img-cn" src="" alt="预览" class="max-h-64 mx-auto rounded-lg border" />
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button id="run-ocr-cn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">开始识别</button>
+                        <button id="save-ocr-cn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700" disabled>保存到题库</button>
+                        <button id="open-bank-cn" class="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200">管理题库</button>
+                    </div>
+                    <textarea id="ocr-text-cn" class="w-full h-40 border rounded-lg p-3" placeholder="识别结果在此显示"></textarea>
+                    <div id="ocr-status-cn" class="text-sm text-gray-500"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="bank-modal-cn" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold">题库管理（语文）</h3>
+                    <button id="close-bank-cn" class="text-gray-500 hover:text-gray-700">✖</button>
+                </div>
+                <div class="space-y-4">
+                    <div class="flex items-center space-x-3">
+                        <select id="bank-type-cn" class="border rounded-lg p-2">
+                            <option value="">全部类型</option>
+                            <option value="chinese_reading">阅读理解</option>
+                            <option value="chinese_general">其他</option>
+                        </select>
+                        <button id="refresh-bank-cn" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">刷新</button>
+                    </div>
+                    <div id="bank-list-cn" class="grid grid-cols-1 gap-3 max-h-[50vh] overflow-auto"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 依赖脚本 -->
+        <script src="https://unpkg.com/tesseract.js@v4.0.2/dist/tesseract.min.js"></script>
+        <script src="questionBank.js"></script>
+        <script src="ocr.js"></script>
+        <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const openBtn = document.getElementById('open-ocr-cn');
+            const modal = document.getElementById('ocr-modal-cn');
+            const closeBtn = document.getElementById('close-ocr-cn');
+            const fileInput = document.getElementById('ocr-file-cn');
+            const previewBox = document.getElementById('ocr-preview-cn');
+            const imgEl = document.getElementById('ocr-img-cn');
+            const runBtn = document.getElementById('run-ocr-cn');
+            const saveBtn = document.getElementById('save-ocr-cn');
+            const bankBtn = document.getElementById('open-bank-cn');
+            const textArea = document.getElementById('ocr-text-cn');
+            const statusEl = document.getElementById('ocr-status-cn');
+
+            const bankModal = document.getElementById('bank-modal-cn');
+            const closeBank = document.getElementById('close-bank-cn');
+            const bankType = document.getElementById('bank-type-cn');
+            const bankList = document.getElementById('bank-list-cn');
+            const refreshBank = document.getElementById('refresh-bank-cn');
+
+            function openModal(){ modal.classList.remove('hidden'); modal.classList.add('flex'); }
+            function closeModal(){ modal.classList.add('hidden'); modal.classList.remove('flex'); }
+            function openBank(){ bankModal.classList.remove('hidden'); bankModal.classList.add('flex'); renderBank(); }
+            function closeBankModal(){ bankModal.classList.add('hidden'); bankModal.classList.remove('flex'); }
+
+            openBtn?.addEventListener('click', openModal);
+            closeBtn?.addEventListener('click', closeModal);
+            bankBtn?.addEventListener('click', openBank);
+            closeBank?.addEventListener('click', closeBankModal);
+
+            fileInput?.addEventListener('change', async (e) => {
+                const file = e.target.files?.[0];
+                if(!file) return;
+                const dataUrl = await OCRUtils.readFileAsDataURL(file);
+                imgEl.src = dataUrl;
+                imgEl.dataset.dataUrl = dataUrl;
+                previewBox.classList.remove('hidden');
+                saveBtn.disabled = true;
+                statusEl.textContent = '已选择图片，点击开始识别';
+            });
+
+            runBtn?.addEventListener('click', async () => {
+                const dataUrl = imgEl.dataset.dataUrl;
+                if(!dataUrl){ statusEl.textContent = '请先选择图片'; return; }
+                statusEl.textContent = '正在识别…';
+                try {
+                    const text = await OCRUtils.recognize(dataUrl, 'chinese');
+                    textArea.value = text;
+                    saveBtn.disabled = !text.trim();
+                    statusEl.textContent = '识别完成，可编辑后保存';
+                } catch(err){
+                    console.error(err);
+                    statusEl.textContent = '识别失败，请更换清晰图片';
+                }
+            });
+
+            saveBtn?.addEventListener('click', () => {
+                const text = textArea.value.trim();
+                const dataUrl = imgEl.dataset.dataUrl || null;
+                if(!text){ statusEl.textContent = '文本为空，无法保存'; return; }
+                const entry = QuestionBank.addEntry({ subject: 'chinese', imageDataUrl: dataUrl, text });
+                statusEl.textContent = '已保存到题库（类型：' + entry.type + '）';
+                renderBank();
+            });
+
+            refreshBank?.addEventListener('click', renderBank);
+            bankType?.addEventListener('change', renderBank);
+
+            function renderBank(){
+                const type = bankType.value || null;
+                const items = QuestionBank.list({ subject: 'chinese', type });
+                if(items.length === 0){
+                    bankList.innerHTML = '<div class="text-gray-500">暂无数据</div>';
+                    return;
+                }
+                bankList.innerHTML = items.map(e => `
+                  <div class="border rounded-xl p-3 flex space-x-3">
+                    ${e.imageDataUrl ? `<img src="${e.imageDataUrl}" class="w-20 h-20 object-cover rounded">` : ''}
+                    <div class="flex-1">
+                      <div class="text-sm text-gray-500">类型：${e.type}</div>
+                      <textarea data-id="${e.id}" class="w-full border rounded p-2 mt-1">${e.text.replace(/</g,'&lt;')}</textarea>
+                      <div class="mt-2 flex space-x-2">
+                        <button data-act="update" data-id="${e.id}" class="px-3 py-1 bg-blue-600 text-white rounded">更新</button>
+                        <button data-act="delete" data-id="${e.id}" class="px-3 py-1 bg-red-600 text-white rounded">删除</button>
+                      </div>
+                    </div>
+                  </div>
+                `).join('');
+                bankList.querySelectorAll('button').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const id = btn.getAttribute('data-id');
+                        const act = btn.getAttribute('data-act');
+                        if(act === 'update'){
+                            const ta = bankList.querySelector(`textarea[data-id="${id}"]`);
+                            QuestionBank.update(id, { text: ta.value });
+                        } else if(act === 'delete'){
+                            QuestionBank.remove(id);
+                            renderBank();
+                        }
+                    });
+                });
+            }
+        });
+        </script>
+
+<!-- 屏幕适配开关（右上角） -->
+<div id="viewport-switcher" class="fixed top-3 right-3 z-50 select-none">
+  <div class="relative">
+    <button id="adapt-toggle" class="flex items-center space-x-2 px-3 py-2 bg-white/80 backdrop-blur shadow-sm border border-gray-200 rounded-full hover:bg-white">
+      <span id="adapt-icon">🧭</span>
+      <span id="adapt-label" class="text-sm">自适应</span>
+    </button>
+    <div id="adapt-menu" class="absolute right-0 mt-2 w-44 bg-white border border-gray-200 shadow-xl rounded-xl p-2 hidden">
+      <button data-adapt="auto" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>🧭</span><span>自动识别</span></button>
+      <button data-adapt="desktop" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>💻</span><span>电脑端</span></button>
+      <button data-adapt="tablet" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>📟</span><span>平板端</span></button>
+      <button data-adapt="mobile" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>📱</span><span>手机端</span></button>
+    </div>
+  </div>
+</div>
+
+<style>
+  html[data-adapt="desktop"] body { max-width: 1280px; margin: 0 auto; }
+  html[data-adapt="tablet"] body { max-width: 768px; margin: 0 auto; padding-left: 8px; padding-right: 8px; }
+  html[data-adapt="mobile"] body { max-width: 390px; margin: 0 auto; padding-left: 12px; padding-right: 12px; }
+  body { transition: max-width 0.25s ease; }
+</style>
+<script>
+(function(){
+  const root = document.documentElement;
+  const KEY = 'adapt-mode';
+  function detectMode(){ const w = window.innerWidth; if(w < 640) return 'mobile'; if(w < 1024) return 'tablet'; return 'desktop'; }
+  function updateLabel(mode){ const label=document.getElementById('adapt-label'); const icon=document.getElementById('adapt-icon'); if(!label||!icon) return; const map={auto:['自适应','🧭'],desktop:['电脑端','💻'],tablet:['平板端','📟'],mobile:['手机端','📱']}; const p=map[mode]||map.auto; label.textContent=p[0]; icon.textContent=p[1]; }
+  function apply(mode){ if(mode==='auto'){ updateLabel('auto'); return; } root.setAttribute('data-adapt',mode); updateLabel(mode); }
+  function init(){ const saved=localStorage.getItem(KEY)||'auto'; apply(saved); if(saved==='auto'){ const setByScreen=()=>{ const m=detectMode(); root.setAttribute('data-adapt',m); }; setByScreen(); window.addEventListener('resize',setByScreen); } }
+  document.addEventListener('DOMContentLoaded',()=>{ const toggle=document.getElementById('adapt-toggle'); const menu=document.getElementById('adapt-menu'); if(toggle){ toggle.addEventListener('click',()=>menu.classList.toggle('hidden')); document.addEventListener('click',(e)=>{ if(!menu.contains(e.target) && e.target!==toggle){ menu.classList.add('hidden'); } }); }
+    ['auto','desktop','tablet','mobile'].forEach(m=>{ const el=document.querySelector('#adapt-menu [data-adapt="'+m+'"]'); if(!el) return; el.addEventListener('click',()=>{ localStorage.setItem(KEY,m); if(m==='auto'){ updateLabel('auto'); const setByScreen=()=>{ const mm=detectMode(); root.setAttribute('data-adapt',mm); }; setByScreen(); window.addEventListener('resize',setByScreen); } else { root.setAttribute('data-adapt',m); updateLabel(m); window.removeEventListener('resize',()=>{}); } menu.classList.add('hidden'); }); });
+    init();
+  });
+})();
+</script>
+
+</body>
+</html>

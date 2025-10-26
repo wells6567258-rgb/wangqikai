@@ -1,0 +1,2237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数学练习 - 汪琪凯的学习天地</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="theme.css">
+    <script src="theme.js" defer></script>
+    <style>
+        * {
+            font-family: 'Noto Sans SC', sans-serif;
+        }
+        
+        .question-card {
+            transition: all 0.3s ease;
+        }
+        
+        .question-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        
+        .answer-input {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            border: 2px solid #E5E7EB;
+            border-radius: 8px;
+            padding: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .answer-input:focus {
+            border-color: #4A90E2;
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+        }
+        
+        .answer-input.correct {
+            border-color: #7ED321;
+            background-color: #F0F9E8;
+        }
+        
+        .answer-input.incorrect {
+            border-color: #EF4444;
+            background-color: #FEF2F2;
+        }
+        
+        .vertical-calculation {
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            line-height: 2;
+        }
+        
+        .draft-canvas {
+            border: 2px dashed #D1D5DB;
+            border-radius: 8px;
+            background: #F9FAFB;
+            cursor: crosshair;
+        }
+        
+        .tool-btn {
+            transition: all 0.2s ease;
+        }
+        
+        .tool-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .tool-btn.active {
+            background-color: #4A90E2;
+            color: white;
+        }
+        
+        .progress-step {
+            position: relative;
+        }
+        
+        .progress-step::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: -20px;
+            width: 40px;
+            height: 2px;
+            background: #E5E7EB;
+            transform: translateY(-50%);
+        }
+        
+        .progress-step.completed::after {
+            background: #7ED321;
+        }
+        
+        .progress-step:last-child::after {
+            display: none;
+        }
+    </style>
+</head>
+<body class="tw-theme bg-gradient-to-br from-purple-50 to-blue-50 min-h-screen">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <button onclick="goBack()" class="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
+                        ← 返回
+                    </button>
+                    <h1 class="text-2xl font-bold text-gray-800">数学练习</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="open-ocr" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2">
+                        <span>📷</span><span>拍照录题</span>
+                    </button>
+                    <div class="text-sm text-gray-600">
+                        进度: <span class="font-bold text-blue-600" id="overall-progress">0/50</span>
+                    </div>
+                    <button onclick="goHome()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        主页
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <!-- 进度指示器 -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-8" id="progress-indicator">
+            <div class="flex items-center justify-between">
+                <button class="progress-step clickable-step flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors" 
+                        onclick="switchToSection('oral')" id="oral-step">
+                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">1</div>
+                    <span class="ml-2 text-sm font-medium text-blue-600">口算题</span>
+                </button>
+                <button class="progress-step clickable-step flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors" 
+                        onclick="switchToSection('vertical')" id="vertical-step">
+                    <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-white font-bold text-sm">2</div>
+                    <span class="ml-2 text-sm font-medium text-gray-500">竖式计算</span>
+                </button>
+                <button class="progress-step clickable-step flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors" 
+                        onclick="switchToSection('word')" id="word-step">
+                    <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-white font-bold text-sm">3</div>
+                    <span class="ml-2 text-sm font-medium text-gray-500">应用题</span>
+                </button>
+                <div class="progress-step flex items-center" id="complete-step">
+                    <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-white font-bold text-sm">✓</div>
+                    <span class="ml-2 text-sm font-medium text-gray-500">完成</span>
+                </div>
+            </div>
+            
+            <!-- 整体进度条 -->
+            <div class="mt-6">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-gray-600">整体进度</span>
+                    <span class="text-sm font-medium text-blue-600" id="progress-percentage">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                    <div class="bg-gradient-to-r from-blue-400 to-green-500 h-3 rounded-full transition-all duration-500" 
+                         style="width: 0%" id="progress-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 口算题与草稿并排 -->
+        <div id="oral-draft-wrapper" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div id="oral-section" class="">
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 flex items-center">
+                            <span class="mr-3">🧮</span>口算题 (20题)
+                            <span id="group-indicator" class="ml-4 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm"></span>
+                        </h2>
+                        <div class="text-sm text-gray-600">
+                            得分: <span class="font-bold text-blue-600" id="oral-score">0</span>/20
+                        </div>
+                    </div>
+                    
+                    <div id="oral-questions" class="grid grid-cols-1 gap-4">
+                        <!-- 口算题目将通过JavaScript生成 -->
+                    </div>
+                    <!-- 组控件由脚本动态添加 -->
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                        <span class="mr-2">📝</span>草稿区域
+                    </h3>
+                    <div class="flex items-center space-x-2">
+                        <button class="tool-btn px-3 py-2 bg-blue-100 text-blue-800 rounded-lg active" id="pen-tool">
+                            ✏️ 画笔
+                        </button>
+                        <button class="tool-btn px-3 py-2 bg-red-100 text-red-800 rounded-lg" id="eraser-tool">
+                            🧽 橡皮
+                        </button>
+                        <button class="tool-btn px-3 py-2 bg-gray-100 text-gray-800 rounded-lg" onclick="clearCanvas()">
+                            🗑️ 清空
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="draft-canvas" id="canvas-container">
+                    <canvas id="draft-canvas" width="800" height="300" class="w-full h-full"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 竖式计算区域（并排草稿区） -->
+        <div id="vertical-section" class="mb-8 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- 左侧：竖式题目 -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 flex items-center">
+                            <span class="mr-3">✏️</span>竖式计算 (15题)
+                        </h2>
+                        <div class="text-sm text-gray-600">
+                            得分: <span class="font-bold text-blue-600" id="vertical-score">0</span>/15
+                        </div>
+                    </div>
+                    <div id="vertical-questions" class="space-y-6">
+                        <!-- 竖式题目将通过JavaScript生成 -->
+                    </div>
+                    <!-- 组控件由脚本动态添加 -->
+                </div>
+                
+                <!-- 右侧：草稿区 -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <div class="mb-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                                <span class="mr-2">📝</span>草稿区域
+                            </h3>
+                            <div class="flex space-x-2">
+                                <button id="vertical-pen-tool" class="tool-btn px-3 py-2 bg-gray-100 text-gray-800 rounded-lg">✏️ 笔</button>
+                                <button id="vertical-eraser-tool" class="tool-btn px-3 py-2 bg-gray-100 text-gray-800 rounded-lg">🧽 橡皮</button>
+                                <button id="vertical-clear-tool" class="tool-btn px-3 py-2 bg-gray-100 text-gray-800 rounded-lg" onclick="clearVerticalCanvas()">🗑️ 清空</button>
+                            </div>
+                        </div>
+                        <div class="draft-canvas" id="vertical-canvas-container">
+                            <canvas id="vertical-draft-canvas" width="800" height="300" class="w-full h-full"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 应用题区域（并排草稿区） -->
+        <div id="word-section" class="mb-8 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- 左侧：应用题模板 -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 flex items-center">
+                            <span class="mr-3">📚</span>应用题 (15题)
+                        </h2>
+                        <div class="text-sm text-gray-600">
+                            得分: <span class="font-bold text-blue-600" id="word-score">0</span>/15
+                        </div>
+                    </div>
+                    
+                    <div id="word-questions" class="space-y-6">
+                        <!-- 应用题将通过JavaScript生成 -->
+                    </div>
+                    
+                    <!-- 组控件由脚本动态添加 -->
+                </div>
+
+                <!-- 右侧：草稿区 -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <div class="mb-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                                <span class="mr-2">📝</span>草稿区域
+                            </h3>
+                            <div class="flex space-x-2">
+                                <button id="word-pen-tool" class="tool-btn px-3 py-2 bg-gray-100 text-gray-800 rounded-lg">✏️ 笔</button>
+                                <button id="word-eraser-tool" class="tool-btn px-3 py-2 bg-gray-100 text-gray-800 rounded-lg">🧽 橡皮</button>
+                                <button id="word-clear-tool" class="tool-btn px-3 py-2 bg-gray-100 text-gray-800 rounded-lg" onclick="clearWordCanvas()">🗑️ 清空</button>
+                            </div>
+                        </div>
+                        <div class="draft-canvas" id="word-canvas-container">
+                            <canvas id="word-draft-canvas" width="800" height="300" class="w-full h-full"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 草稿区域已移至口算并排 -->
+
+        <!-- 错题本 -->
+        <div id="wrong-answers" class="bg-white rounded-2xl shadow-lg p-6 hidden">
+            <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <span class="mr-2">❌</span>错题回顾
+            </h3>
+            <div id="wrong-questions" class="space-y-4">
+                <!-- 错题将通过JavaScript生成 -->
+            </div>
+        </div>
+
+        <!-- 完成页面 -->
+        <div id="completion-page" class="bg-white rounded-2xl shadow-lg p-8 text-center hidden">
+            <div class="text-6xl mb-4">🎉</div>
+            <h2 class="text-3xl font-bold text-green-600 mb-4">数学练习完成！</h2>
+            <p class="text-gray-600 mb-6">恭喜你完成了所有数学题目！</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-blue-50 rounded-lg p-4">
+                    <div class="text-3xl font-bold text-blue-600" id="final-oral-score">0</div>
+                    <div class="text-sm text-gray-500">口算题得分</div>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4">
+                    <div class="text-3xl font-bold text-green-600" id="final-vertical-score">0</div>
+                    <div class="text-sm text-gray-500">竖式计算得分</div>
+                </div>
+                <div class="bg-orange-50 rounded-lg p-4">
+                    <div class="text-3xl font-bold text-orange-600" id="final-word-score">0</div>
+                    <div class="text-sm text-gray-500">应用题得分</div>
+                </div>
+            </div>
+            
+            <div class="text-2xl font-bold text-purple-600 mb-6">
+                总分: <span id="final-total-score">0</span>/50
+            </div>
+            
+            <div class="flex justify-center space-x-4">
+                <button onclick="viewWrongAnswers()" class="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors font-medium">
+                    查看错题
+                </button>
+                <button onclick="goBack()" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                    返回主页
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // 数学练习系统核心逻辑
+        let currentSection = 'oral';
+        let oralQuestions = [];
+        let verticalQuestions = [];
+        let wordQuestions = [];
+        let wrongAnswers = [];
+        let scores = {
+            oral: 0,
+            vertical: 0,
+            word: 0
+        };
+        // 记录用户作答（按题型与题号），支持分组渲染下的全量审批
+        let userAnswers = {
+            oral: {},
+            vertical: {},
+            word: {}
+        };
+        // 重做状态
+        let redoState = {
+            active: false,
+            mode: null,
+            items: []
+        };
+        // 完成状态跟踪
+        let completionStatus = {
+            oral: false,
+            vertical: false,
+            word: false
+        };
+        
+        // 分组相关变量（按题型独立设置）
+        let currentGroup = 0;
+        const groupSizeMap = {
+            oral: 2,
+            vertical: 1,
+            word: 1
+        };
+        let totalGroups = {
+            oral: 0,
+            vertical: 0,
+            word: 0
+        };
+        // 标记草稿区是否已书写过程
+        let hasDraftContent = false;
+        let canvas, ctx;
+        let isDrawing = false;
+        let currentTool = 'pen';
+        let currentColor = '#1F2937';
+        let lineWidth = 3;
+
+        // 竖式计算草稿区变量
+        let verticalCanvas, verticalCtx;
+        let verticalIsDrawing = false;
+        let verticalCurrentTool = 'pen';
+
+        // 应用题草稿区变量
+        let wordCanvas, wordCtx;
+        let wordIsDrawing = false;
+        let wordCurrentTool = 'pen';
+
+        // 母题数据库（扩展版）
+        const questionTemplates = {
+            oral: [
+                { type: 'addition', min: 10, max: 99, weight: 3 },
+                { type: 'subtraction', min: 10, max: 99, weight: 3 },
+                { type: 'multiplication', min: 2, max: 12, weight: 2 },
+                { type: 'division', min: 2, max: 12, weight: 2 },
+                { type: 'addition_3digit', min: 100, max: 999, weight: 1 },
+                { type: 'subtraction_3digit', min: 100, max: 999, weight: 1 },
+                { type: 'mixed_operations', min: 1, max: 50, weight: 1 },
+                { type: 'decimal_addition', min: 1, max: 99, weight: 1 },
+                { type: 'decimal_subtraction', min: 1, max: 99, weight: 1 },
+                { type: 'fraction_simple', min: 1, max: 10, weight: 1 }
+            ],
+            vertical: [
+                { type: 'addition_2digit', weight: 3, min: 10, max: 99 },
+                { type: 'subtraction_2digit', weight: 3, min: 10, max: 99 },
+                { type: 'multiplication_2digit_1digit', weight: 2, min: 10, max: 99 },
+                { type: 'addition_3digit', weight: 2, min: 100, max: 999 },
+                { type: 'subtraction_3digit', weight: 2, min: 100, max: 999 },
+                { type: 'multiplication_2digit', weight: 1, min: 10, max: 99 },
+                { type: 'division_2digit', weight: 2, min: 2, max: 12 },
+                { type: 'decimal_addition', weight: 1, min: 1, max: 50 },
+                { type: 'decimal_subtraction', weight: 1, min: 1, max: 50 }
+            ],
+            word: [
+                { type: 'basic_arithmetic', weight: 2 },
+                { type: 'area_perimeter', weight: 2 },
+                { type: 'multi_step', weight: 2 },
+                { type: 'speed_distance_time', weight: 1 },
+                { type: 'percentage', weight: 1 },
+                { type: 'ratio', weight: 1 },
+                { type: 'fraction', weight: 1 },
+                { type: 'logic', weight: 1 }
+            ]
+        };
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDailySeed();
+            initializeCanvas();
+            generateAllQuestions();
+            setupEventListeners();
+            showSection('oral');
+        });
+
+        // 初始化画布
+        function initializeCanvas() {
+            // 口算题草稿区
+            canvas = document.getElementById('draft-canvas');
+            ctx = canvas.getContext('2d');
+            const container = document.getElementById('canvas-container');
+            canvas.width = container.offsetWidth;
+            canvas.height = 300;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = currentColor;
+            ctx.lineWidth = lineWidth;
+
+            // 竖式计算草稿区
+            verticalCanvas = document.getElementById('vertical-draft-canvas');
+            if (verticalCanvas) {
+                verticalCtx = verticalCanvas.getContext('2d');
+                const vContainer = verticalCanvas.parentElement;
+                verticalCanvas.width = vContainer.offsetWidth;
+                verticalCanvas.height = 300;
+                verticalCtx.lineCap = 'round';
+                verticalCtx.lineJoin = 'round';
+                verticalCtx.strokeStyle = currentColor;
+                verticalCtx.lineWidth = lineWidth;
+            }
+
+            // 应用题草稿区
+            wordCanvas = document.getElementById('word-draft-canvas');
+            if (wordCanvas) {
+                wordCtx = wordCanvas.getContext('2d');
+                const wContainer = wordCanvas.parentElement;
+                wordCanvas.width = wContainer.offsetWidth;
+                wordCanvas.height = 300;
+                wordCtx.lineCap = 'round';
+                wordCtx.lineJoin = 'round';
+                wordCtx.strokeStyle = currentColor;
+                wordCtx.lineWidth = lineWidth;
+            }
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 口算题草稿区事件
+            document.getElementById('pen-tool').addEventListener('click', () => setTool('pen'));
+            document.getElementById('eraser-tool').addEventListener('click', () => setTool('eraser'));
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+            canvas.addEventListener('touchstart', handleTouch);
+            canvas.addEventListener('touchmove', handleTouch);
+            canvas.addEventListener('touchend', stopDrawing);
+
+            // 竖式计算草稿区事件
+            const vPen = document.getElementById('vertical-pen-tool');
+            const vEraser = document.getElementById('vertical-eraser-tool');
+            const vClear = document.getElementById('vertical-clear-tool');
+            if (vPen && vEraser) {
+                vPen.addEventListener('click', () => setVerticalTool('pen'));
+                vEraser.addEventListener('click', () => setVerticalTool('eraser'));
+            }
+            if (vClear) {
+                vClear.addEventListener('click', clearVerticalCanvas);
+            }
+            if (verticalCanvas) {
+                verticalCanvas.addEventListener('mousedown', startVerticalDrawing);
+                verticalCanvas.addEventListener('mousemove', drawVertical);
+                verticalCanvas.addEventListener('mouseup', stopVerticalDrawing);
+                verticalCanvas.addEventListener('mouseout', stopVerticalDrawing);
+                verticalCanvas.addEventListener('touchstart', handleVerticalTouch);
+                verticalCanvas.addEventListener('touchmove', handleVerticalTouch);
+                verticalCanvas.addEventListener('touchend', stopVerticalDrawing);
+            }
+
+            // 应用题草稿区事件
+            const wPen = document.getElementById('word-pen-tool');
+            const wEraser = document.getElementById('word-eraser-tool');
+            const wClear = document.getElementById('word-clear-tool');
+            if (wPen && wEraser) {
+                wPen.addEventListener('click', () => setWordTool('pen'));
+                wEraser.addEventListener('click', () => setWordTool('eraser'));
+            }
+            if (wClear) {
+                wClear.addEventListener('click', clearWordCanvas);
+            }
+            if (wordCanvas) {
+                wordCanvas.addEventListener('mousedown', startWordDrawing);
+                wordCanvas.addEventListener('mousemove', drawWord);
+                wordCanvas.addEventListener('mouseup', stopWordDrawing);
+                wordCanvas.addEventListener('mouseout', stopWordDrawing);
+                wordCanvas.addEventListener('touchstart', handleWordTouch);
+                wordCanvas.addEventListener('touchmove', handleWordTouch);
+                wordCanvas.addEventListener('touchend', stopWordDrawing);
+            }
+        }
+
+        // 生成所有题目
+        function generateAllQuestions() {
+            generateOralQuestions();
+            generateVerticalQuestions();
+            generateWordQuestions();
+        }
+
+        // 每日种子随机数生成器
+        let dailySeed = 0;
+        
+        function initializeDailySeed() {
+            const today = new Date();
+            const dateString = today.getFullYear() + '' + 
+                              (today.getMonth() + 1).toString().padStart(2, '0') + '' +
+                              today.getDate().toString().padStart(2, '0');
+            dailySeed = parseInt(dateString);
+        }
+        
+        // 基于种子的随机数生成器（线性同余生成器）
+        function seededRandom() {
+            dailySeed = (dailySeed * 9301 + 49297) % 233280;
+            return dailySeed / 233280;
+        }
+        
+        // 根据权重选择题目模板（使用每日种子）
+        function selectTemplateByWeight(templates) {
+            const totalWeight = templates.reduce((sum, t) => sum + t.weight, 0);
+            let random = seededRandom() * totalWeight;
+            
+            for (const template of templates) {
+                random -= template.weight;
+                if (random <= 0) {
+                    return template;
+                }
+            }
+            return templates[0]; // 备用
+        }
+
+        // 生成口算题（扩展版）
+        function generateOralQuestions() {
+            oralQuestions = [];
+            for (let i = 0; i < 20; i++) {
+                const template = selectTemplateByWeight(questionTemplates.oral);
+                let question = {};
+                
+                switch (template.type) {
+                    case 'addition':
+                        const a = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        const b = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        question = {
+                            question: `${a} + ${b} = `,
+                            answer: a + b,
+                            type: 'addition'
+                        };
+                        break;
+                    case 'subtraction':
+                        const c = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        const d = Math.floor(seededRandom() * c) + 1;
+                        question = {
+                            question: `${c} - ${d} = `,
+                            answer: c - d,
+                            type: 'subtraction'
+                        };
+                        break;
+                    case 'multiplication':
+                        const e = Math.floor(seededRandom() * template.max) + template.min;
+                        const f = Math.floor(seededRandom() * template.max) + template.min;
+                        question = {
+                            question: `${e} × ${f} = `,
+                            answer: e * f,
+                            type: 'multiplication'
+                        };
+                        break;
+                    case 'division':
+                        const g = Math.floor(seededRandom() * template.max) + template.min;
+                        const h = Math.floor(seededRandom() * template.max) + template.min;
+                        const product = g * h;
+                        question = {
+                            question: `${product} ÷ ${g} = `,
+                            answer: h,
+                            type: 'division'
+                        };
+                        break;
+                    case 'addition_3digit':
+                        const a3 = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        const b3 = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        question = {
+                            question: `${a3} + ${b3} = `,
+                            answer: a3 + b3,
+                            type: 'addition_3digit'
+                        };
+                        break;
+                    case 'subtraction_3digit':
+                        const c3 = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        const d3 = Math.floor(seededRandom() * c3) + 1;
+                        question = {
+                            question: `${c3} - ${d3} = `,
+                            answer: c3 - d3,
+                            type: 'subtraction_3digit'
+                        };
+                        break;
+                    case 'mixed_operations':
+                        const x = Math.floor(seededRandom() * template.max) + template.min;
+                        const y = Math.floor(seededRandom() * template.max) + template.min;
+                        const z = Math.floor(seededRandom() * template.max) + template.min;
+                        question = {
+                            question: `${x} + ${y} - ${z} = `,
+                            answer: x + y - z,
+                            type: 'mixed_operations'
+                        };
+                        break;
+                    case 'decimal_addition':
+                        const da = (Math.floor(seededRandom() * template.max) + template.min) + parseFloat(seededRandom().toFixed(1));
+                        const db = (Math.floor(seededRandom() * template.max) + template.min) + parseFloat(seededRandom().toFixed(1));
+                        question = {
+                            question: `${da.toFixed(1)} + ${db.toFixed(1)} = `,
+                            answer: parseFloat((da + db).toFixed(1)),
+                            type: 'decimal_addition'
+                        };
+                        break;
+                    case 'decimal_subtraction':
+                        const dc = (Math.floor(seededRandom() * template.max) + template.min) + parseFloat(seededRandom().toFixed(1));
+                        const dd = Math.floor(seededRandom() * dc * 10) / 10;
+                        question = {
+                            question: `${dc.toFixed(1)} - ${dd.toFixed(1)} = `,
+                            answer: parseFloat((dc - dd).toFixed(1)),
+                            type: 'decimal_subtraction'
+                        };
+                        break;
+                    case 'fraction_simple':
+                        const num = Math.floor(seededRandom() * template.max) + template.min;
+                        const den = Math.floor(seededRandom() * template.max) + template.min;
+                        const whole = Math.floor(seededRandom() * 5) + 1;
+                        question = {
+                            question: `${whole} + ${num}/${den} = `,
+                            answer: `${whole * den + num}/${den}`,
+                            type: 'fraction_simple'
+                        };
+                        break;
+                }
+                
+                oralQuestions.push(question);
+            }
+            
+            totalGroups.oral = Math.ceil(oralQuestions.length / groupSizeMap.oral);
+            renderOralQuestions();
+        }
+
+        // 渲染口算题（分组显示）
+        function renderOralQuestions() {
+            const container = document.getElementById('oral-questions');
+            container.innerHTML = '';
+            
+            // 计算当前组的题目范围
+            const startIndex = currentGroup * groupSizeMap.oral;
+            const endIndex = Math.min(startIndex + groupSizeMap.oral, oralQuestions.length);
+            const currentQuestions = oralQuestions.slice(startIndex, endIndex);
+            
+            // 更新组指示器（标题区域）
+            const groupIndicator = document.getElementById('group-indicator');
+            if (groupIndicator) {
+                groupIndicator.textContent = `第 ${currentGroup + 1} 组 (${startIndex + 1}-${endIndex} 题)`;
+            }
+            
+            currentQuestions.forEach((q, index) => {
+                const actualIndex = startIndex + index;
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question-card bg-gray-50 rounded-lg p-4 h-24 flex items-center';
+                questionDiv.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="text-lg font-medium">
+                            <span class="question-index text-indigo-600 font-bold mr-1">${actualIndex + 1}.</span> ${q.question}
+                        </div>
+                        <input type="number" 
+                               class="answer-input w-24" 
+                               id="oral-answer-${actualIndex}"
+                               placeholder="?"
+                               data-index="${actualIndex}"
+                               oninput="recordAnswer('oral', ${actualIndex}, this.value)">
+                    </div>
+                `;
+                container.appendChild(questionDiv);
+            });
+            
+            // 添加检查和下一组按钮
+            addGroupControls(container, 'oral');
+        }
+
+        // 生成竖式计算题
+        function generateVerticalQuestions() {
+            verticalQuestions = [];
+            for (let i = 0; i < 15; i++) {
+                const template = selectTemplateByWeight(questionTemplates.vertical);
+                let question = {};
+                
+                switch (template.type) {
+                    case 'addition_2digit':
+                        const a = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        const b = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        question = {
+                            question: `${a} + ${b}`,
+                            answer: a + b,
+                            type: 'addition',
+                            steps: generateAdditionSteps(a, b)
+                        };
+                        break;
+                    case 'subtraction_2digit':
+                        const c = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        const d = Math.floor(seededRandom() * c) + 1;
+                        question = {
+                            question: `${c} - ${d}`,
+                            answer: c - d,
+                            type: 'subtraction',
+                            steps: generateSubtractionSteps(c, d)
+                        };
+                        break;
+                    case 'multiplication_2digit_1digit':
+                        const e = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        const f = Math.floor(seededRandom() * 8) + 2;
+                        question = {
+                            question: `${e} × ${f}`,
+                            answer: e * f,
+                            type: 'multiplication',
+                            steps: generateMultiplicationSteps(e, f)
+                        };
+                        break;
+                    case 'addition_3digit':
+                        const a3 = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        const b3 = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        question = {
+                            question: `${a3} + ${b3}`,
+                            answer: a3 + b3,
+                            type: 'addition',
+                            steps: generateAdditionSteps(a3, b3)
+                        };
+                        break;
+                    case 'subtraction_3digit':
+                        const c3 = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        const d3 = Math.floor(seededRandom() * c3) + 1;
+                        question = {
+                            question: `${c3} - ${d3}`,
+                            answer: c3 - d3,
+                            type: 'subtraction',
+                            steps: generateSubtractionSteps(c3, d3)
+                        };
+                        break;
+                    case 'multiplication_2digit':
+                        const e2 = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        const f2 = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        question = {
+                            question: `${e2} × ${f2}`,
+                            answer: e2 * f2,
+                            type: 'multiplication',
+                            steps: generateMultiplicationSteps(e2, f2)
+                        };
+                        break;
+                    case 'division_2digit':
+                        const g2 = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        const h2 = Math.floor(seededRandom() * (template.max - template.min)) + template.min;
+                        const product2 = g2 * h2;
+                        question = {
+                            question: `${product2} ÷ ${g2}`,
+                            answer: h2,
+                            type: 'division',
+                            steps: generateDivisionSteps(product2, g2)
+                        };
+                        break;
+                    case 'decimal_addition':
+                        const da = parseFloat((Math.floor(seededRandom() * template.max) + template.min + seededRandom()).toFixed(2));
+                        const db = parseFloat((Math.floor(seededRandom() * template.max) + template.min + seededRandom()).toFixed(2));
+                        question = {
+                            question: `${da} + ${db}`,
+                            answer: parseFloat((da + db).toFixed(2)),
+                            type: 'addition',
+                            steps: generateDecimalAdditionSteps(da, db)
+                        };
+                        break;
+                    case 'decimal_subtraction':
+                        const dc = parseFloat((Math.floor(seededRandom() * template.max) + template.min + seededRandom()).toFixed(2));
+                        const dd = parseFloat((seededRandom() * dc).toFixed(2));
+                        question = {
+                            question: `${dc} - ${dd}`,
+                            answer: parseFloat((dc - dd).toFixed(2)),
+                            type: 'subtraction',
+                            steps: generateDecimalSubtractionSteps(dc, dd)
+                        };
+                        break;
+                }
+                
+                verticalQuestions.push(question);
+            }
+            
+            totalGroups.vertical = verticalQuestions.length; // 一题一组
+            renderVerticalQuestions();
+        }
+
+        // 生成加法步骤
+        function generateAdditionSteps(a, b) {
+            const aStr = a.toString();
+            const bStr = b.toString().padStart(aStr.length, '0');
+            const result = a + b;
+            
+            return {
+                numbers: [aStr, bStr],
+                result: result.toString(),
+                carries: []
+            };
+        }
+
+        // 生成减法步骤
+        function generateSubtractionSteps(a, b) {
+            const aStr = a.toString();
+            const bStr = b.toString().padStart(aStr.length, '0');
+            const result = a - b;
+            
+            return {
+                numbers: [aStr, bStr],
+                result: result.toString(),
+                borrows: []
+            };
+        }
+
+        // 生成乘法步骤
+        function generateMultiplicationSteps(a, b) {
+            const aStr = a.toString();
+            const bStr = b.toString();
+            const result = a * b;
+            const partialProducts = [];
+            
+            for (let i = bStr.length - 1; i >= 0; i--) {
+                const digit = parseInt(bStr[i]);
+                const partial = a * digit;
+                partialProducts.push(partial.toString());
+            }
+            
+            return {
+                numbers: [aStr, bStr],
+                result: result.toString(),
+                partialProducts: partialProducts
+            };
+        }
+
+        // 生成除法步骤
+        function generateDivisionSteps(dividend, divisor) {
+            const dividendStr = dividend.toString();
+            const divisorStr = divisor.toString();
+            const quotient = Math.floor(dividend / divisor);
+            const remainder = dividend % divisor;
+            
+            return {
+                dividend: dividendStr,
+                divisor: divisorStr,
+                quotient: quotient.toString(),
+                remainder: remainder.toString()
+            };
+        }
+
+        // 生成小数加法步骤
+        function generateDecimalAdditionSteps(a, b) {
+            const aStr = a.toString();
+            const bStr = b.toString();
+            const result = (a + b).toFixed(2);
+            
+            return {
+                numbers: [aStr, bStr],
+                result: result,
+                type: 'decimal_addition'
+            };
+        }
+
+        // 生成小数减法步骤
+        function generateDecimalSubtractionSteps(a, b) {
+            const aStr = a.toString();
+            const bStr = b.toString();
+            const result = (a - b).toFixed(2);
+            
+            return {
+                numbers: [aStr, bStr],
+                result: result,
+                type: 'decimal_subtraction'
+            };
+        }
+
+        // 渲染竖式题目（分组显示）
+        function renderVerticalQuestions() {
+            const container = document.getElementById('vertical-questions');
+            container.innerHTML = '';
+            
+            // 计算当前组的题目范围
+            const startIndex = currentGroup * groupSizeMap.vertical;
+            const endIndex = Math.min(startIndex + groupSizeMap.vertical, verticalQuestions.length);
+            const currentQuestions = verticalQuestions.slice(startIndex, endIndex);
+            
+            // 添加组标题
+            const groupTitle = document.createElement('div');
+            groupTitle.className = 'text-xl font-bold text-center mb-6 text-green-600';
+            groupTitle.textContent = `第 ${currentGroup + 1} 组 (${startIndex + 1}-${endIndex} 题)`;
+            container.appendChild(groupTitle);
+            
+            currentQuestions.forEach((q, index) => {
+                const actualIndex = startIndex + index;
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question-card bg-gray-50 rounded-lg p-6';
+                
+                let verticalHTML = '';
+                if (q.type === 'addition') {
+                    verticalHTML = renderAdditionVertical(q, actualIndex);
+                } else if (q.type === 'subtraction') {
+                    verticalHTML = renderSubtractionVertical(q, actualIndex);
+                } else if (q.type === 'multiplication') {
+                    verticalHTML = renderMultiplicationVertical(q, actualIndex);
+                }
+                
+                questionDiv.innerHTML = `
+                    <div class="mb-4">
+                        <span class="font-medium">第 ${actualIndex + 1} 题: ${q.question}</span>
+                    </div>
+                    ${verticalHTML}
+                `;
+                
+                container.appendChild(questionDiv);
+            });
+            
+            // 添加检查和下一组按钮
+            addGroupControls(container, 'vertical');
+        }
+
+        // 渲染加法竖式
+        function renderAdditionVertical(question, index) {
+            const steps = question.steps;
+            return `
+                <div class="vertical-calculation mb-4">
+                    <div class="flex items-center space-x-4">
+                        <div class="text-right">
+                            <div class="border-b border-gray-400 pb-1 mb-1">${steps.numbers[0]}</div>
+                            <div>+ ${steps.numbers[1]}</div>
+                            <div class="border-t border-gray-400 pt-1 mt-1">
+                                <input type="number" 
+                                       class="answer-input w-32 text-right" 
+                                       id="vertical-answer-${index}"
+                                       placeholder="?"
+                                       data-index="${index}"
+                                       oninput="recordAnswer('vertical', ${index}, this.value)">
+                            </div>
+                        </div>
+                        <div class="text-sm text-gray-500">
+                            提示：相同数位要对齐，从个位加起，满十进一
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 渲染减法竖式
+        function renderSubtractionVertical(question, index) {
+            const steps = question.steps;
+            return `
+                <div class="vertical-calculation mb-4">
+                    <div class="flex items-center space-x-4">
+                        <div class="text-right">
+                            <div class="border-b border-gray-400 pb-1 mb-1">${steps.numbers[0]}</div>
+                            <div>- ${steps.numbers[1]}</div>
+                            <div class="border-t border-gray-400 pt-1 mt-1">
+                                <input type="number" 
+                                       class="answer-input w-32 text-right" 
+                                       id="vertical-answer-${index}"
+                                       placeholder="?"
+                                       data-index="${index}"
+                                       oninput="recordAnswer('vertical', ${index}, this.value)">
+                            </div>
+                        </div>
+                        <div class="text-sm text-gray-500">
+                            提示：相同数位要对齐，从个位减起，不够减时向前一位借1当10
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 渲染乘法竖式
+        function renderMultiplicationVertical(question, index) {
+            const steps = question.steps;
+            return `
+                <div class="vertical-calculation mb-4">
+                    <div class="flex items-center space-x-4">
+                        <div class="text-right">
+                            <div class="border-b border-gray-400 pb-1 mb-1">${steps.numbers[0]}</div>
+                            <div>× ${steps.numbers[1]}</div>
+                            <div class="border-t border-gray-400 pt-1 mt-1">
+                                <input type="number" 
+                                       class="answer-input w-32 text-right" 
+                                       id="vertical-answer-${index}"
+                                       placeholder="?"
+                                       data-index="${index}"
+                                       oninput="recordAnswer('vertical', ${index}, this.value)">
+                            </div>
+                        </div>
+                        <div class="text-sm text-gray-500">
+                            提示：从个位算起，用乘数依次去乘被乘数的每一位
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 生成应用题
+        function generateWordQuestions() {
+            wordQuestions = [];
+            
+            for (let i = 0; i < 15; i++) {
+                const template = selectTemplateByWeight(questionTemplates.word);
+                let question = {};
+                
+                switch (template.type) {
+                    case 'basic_arithmetic':
+                        const items = Math.floor(seededRandom() * 50) + 20;
+                        const groups = Math.floor(seededRandom() * 8) + 2;
+                        const result = Math.floor(items / groups);
+                        question = {
+                            question: `小明有${items}个苹果，要平均分给${groups}个小朋友，每个小朋友能分到多少个苹果？`,
+                            answer: result,
+                            solution: `${items} ÷ ${groups} = ${result} (个)`,
+                            type: 'basic_arithmetic'
+                        };
+                        break;
+                    case 'area_perimeter':
+                        const length = Math.floor(seededRandom() * 100) + 50;
+                        const width = Math.floor(seededRandom() * 80) + 30;
+                        const perimeter = (length + width) * 2;
+                        question = {
+                            question: `一个长方形操场长${length}米，宽${width}米，小明绕着操场跑一圈，他跑了多少米？`,
+                            answer: perimeter,
+                            solution: `(${length} + ${width}) × 2 = ${perimeter} (米)`,
+                            type: 'area_perimeter'
+                        };
+                        break;
+                    case 'multi_step':
+                        const boxes = Math.floor(seededRandom() * 5) + 2;
+                        const itemsPerBox = Math.floor(seededRandom() * 10) + 5;
+                        const totalCost = Math.floor(seededRandom() * 200) + 50;
+                        const costPerItem = Math.floor(totalCost / (boxes * itemsPerBox));
+                        question = {
+                            question: `妈妈买了${boxes}箱牛奶，每箱有${itemsPerBox}盒，一共花了${totalCost}元，平均每盒牛奶多少元？`,
+                            answer: costPerItem,
+                            solution: `${totalCost} ÷ (${boxes} × ${itemsPerBox}) = ${costPerItem} (元)`,
+                            type: 'multi_step'
+                        };
+                        break;
+                    case 'speed_distance_time':
+                        const speed = Math.floor(seededRandom() * 60) + 20;
+                        const time = Math.floor(seededRandom() * 3) + 1;
+                        const distance = speed * time;
+                        question = {
+                            question: `一辆汽车每小时行驶${speed}千米，行驶了${time}小时，一共行驶了多少千米？`,
+                            answer: distance,
+                            solution: `${speed} × ${time} = ${distance} (千米)`,
+                            type: 'speed_distance'
+                        };
+                        break;
+                    case 'percentage':
+                        const total = Math.floor(seededRandom() * 200) + 100;
+                        const percentage = Math.floor(seededRandom() * 50) + 20;
+                        const result_pct = Math.floor(total * percentage / 100);
+                        question = {
+                            question: `一件衣服原价${total}元，现在打${percentage}%折，现在的价格是多少元？`,
+                            answer: result_pct,
+                            solution: `${total} × ${percentage}% = ${result_pct} (元)`,
+                            type: 'percentage'
+                        };
+                        break;
+                    case 'ratio':
+                        const boys = Math.floor(seededRandom() * 20) + 10;
+                        const girls = Math.floor(seededRandom() * 20) + 10;
+                        const totalStudents = boys + girls;
+                        question = {
+                            question: `班级里有男生${boys}人，女生${girls}人，男生和女生的比例是多少？`,
+                            answer: `${boys}:${girls}`,
+                            solution: `男生:女生 = ${boys}:${girls}`,
+                            type: 'ratio'
+                        };
+                        break;
+                    case 'fraction':
+                        const rope = Math.floor(seededRandom() * 30) + 10;
+                        const numerator = Math.floor(seededRandom() * 4) + 1;
+                        const denominator = Math.floor(seededRandom() * 5) + 3;
+                        const used = Math.floor(rope * numerator / denominator);
+                        question = {
+                            question: `一根绳子长${rope}米，用去了它的${numerator}/${denominator}，用去了多少米？`,
+                            answer: used,
+                            solution: `${rope} ÷ ${denominator} × ${numerator} = ${used} (米)`,
+                            type: 'fraction'
+                        };
+                        break;
+                    case 'logic':
+                        const age1 = Math.floor(seededRandom() * 20) + 20;
+                        const ageDiff = Math.floor(seededRandom() * 10) + 5;
+                        const age2 = age1 + ageDiff;
+                        const totalAge = age1 + age2;
+                        question = {
+                            question: `爸爸比儿子大${ageDiff}岁，两人年龄之和是${totalAge}岁，儿子今年多少岁？`,
+                            answer: age1,
+                            solution: `(${totalAge} - ${ageDiff}) ÷ 2 = ${age1} (岁)`,
+                            type: 'logic'
+                        };
+                        break;
+                    default:
+                        // 默认基础算术题
+                        const defaultItems = Math.floor(seededRandom() * 50) + 20;
+                        const defaultGroups = Math.floor(seededRandom() * 8) + 2;
+                        const defaultResult = Math.floor(defaultItems / defaultGroups);
+                        question = {
+                            question: `小明有${defaultItems}个苹果，要平均分给${defaultGroups}个小朋友，每个小朋友能分到多少个苹果？`,
+                            answer: defaultResult,
+                            solution: `${defaultItems} ÷ ${defaultGroups} = ${defaultResult} (个)`,
+                            type: 'basic_arithmetic'
+                        };
+                }
+                
+                question.id = i;
+                wordQuestions.push(question);
+            }
+            
+            totalGroups.word = wordQuestions.length; // 一题一组
+            renderWordQuestions();
+        }
+
+        // 渲染应用题（分组显示）
+        function renderWordQuestions() {
+            const container = document.getElementById('word-questions');
+            container.innerHTML = '';
+            
+            // 计算当前组的题目范围
+            const startIndex = currentGroup * groupSizeMap.word;
+            const endIndex = Math.min(startIndex + groupSizeMap.word, wordQuestions.length);
+            const currentQuestions = wordQuestions.slice(startIndex, endIndex);
+            
+            // 添加组标题
+            const groupTitle = document.createElement('div');
+            groupTitle.className = 'text-xl font-bold text-center mb-6 text-purple-600';
+            groupTitle.textContent = `第 ${currentGroup + 1} 组 (${startIndex + 1}-${endIndex} 题)`;
+            container.appendChild(groupTitle);
+            
+            currentQuestions.forEach((q, index) => {
+                const actualIndex = startIndex + index;
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question-card bg-gray-50 rounded-lg p-6';
+                questionDiv.innerHTML = `
+                    <div class="mb-4">
+                        <div class="font-medium mb-2">第 ${actualIndex + 1} 题:</div>
+                        <div class="text-gray-700 mb-4">${q.question}</div>
+                        <div class="flex items-center space-x-4">
+                            <span class="font-medium">答案:</span>
+                            <input type="text" 
+                                   class="answer-input w-32" 
+                                   id="word-answer-${actualIndex}"
+                                   placeholder="请输入答案"
+                                   data-index="${actualIndex}"
+                                   oninput="recordAnswer('word', ${actualIndex}, this.value)">
+                            <span class="text-sm text-gray-500">单位已在题目中给出</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(questionDiv);
+            });
+            
+            // 添加检查和下一组按钮
+            addGroupControls(container, 'word');
+        }
+
+        // 添加分组控制按钮
+        function addGroupControls(container, mode) {
+            const controlsDiv = document.createElement('div');
+            controlsDiv.className = 'flex justify-center space-x-4 mt-8 pt-6 border-t border-gray-200';
+            
+            // 检查当前组按钮
+            const checkButton = document.createElement('button');
+            checkButton.className = 'px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium';
+            checkButton.textContent = '检查当前组';
+            checkButton.onclick = () => checkCurrentGroup(mode);
+            
+            // 上一组按钮（始终启用）
+            const prevButton = document.createElement('button');
+            prevButton.id = `prev-group-${mode}`;
+            prevButton.className = 'px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium';
+            prevButton.textContent = '上一组';
+            prevButton.onclick = () => prevGroup(mode);
+            
+            // 下一组按钮
+            const nextButton = document.createElement('button');
+            nextButton.className = 'px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium';
+            nextButton.id = `next-group-${mode}`;
+            
+            if (currentGroup < totalGroups[mode] - 1) {
+                nextButton.textContent = '下一组';
+                nextButton.onclick = () => nextGroup(mode);
+            } else {
+                nextButton.textContent = '完成所有题目';
+                nextButton.onclick = () => finishAllQuestions(mode);
+            }
+            
+            controlsDiv.appendChild(checkButton);
+            controlsDiv.appendChild(prevButton);
+            controlsDiv.appendChild(nextButton);
+            container.appendChild(controlsDiv);
+        }
+        
+        // 检查当前组答案
+        function checkCurrentGroup(mode) {
+            const groupSize = groupSizeMap[mode];
+            const startIndex = currentGroup * groupSize;
+            const endIndex = Math.min(startIndex + groupSize, 
+                mode === 'oral' ? oralQuestions.length : 
+                mode === 'vertical' ? verticalQuestions.length : wordQuestions.length);
+            
+            // 提示：建议在草稿区写出计算/解题过程，但不强制限制
+            // if (mode !== 'oral' && !hasDraftContent) {
+            //     showMessage('建议在草稿区写出计算/解题过程，再检查当前题。', 'info');
+            // }
+            
+            let correctCount = 0;
+            let totalCount = endIndex - startIndex;
+            
+            for (let i = startIndex; i < endIndex; i++) {
+                const input = document.getElementById(`${mode}-answer-${i}`);
+                if (!input) continue;
+                
+                const userAnswer = input.value.trim();
+                let correctAnswer;
+                
+                if (mode === 'oral') {
+                    correctAnswer = oralQuestions[i].answer.toString();
+                } else if (mode === 'vertical') {
+                    correctAnswer = verticalQuestions[i].answer.toString();
+                } else {
+                    correctAnswer = wordQuestions[i].answer.toString();
+                }
+                
+                const card = input.closest('.question-card');
+                if (userAnswer === correctAnswer) {
+                    input.style.borderColor = '#10B981';
+                    input.style.backgroundColor = '#ECFDF5';
+                    if (card) { card.style.borderColor = '#10B981'; card.style.borderWidth = '2px'; card.style.backgroundColor = '#ECFDF5'; }
+                    correctCount++;
+                } else {
+                    input.style.borderColor = '#EF4444';
+                    input.style.backgroundColor = '#FEF2F2';
+                    if (card) { card.style.borderColor = '#EF4444'; card.style.borderWidth = '2px'; card.style.backgroundColor = '#FEF2F2'; }
+                }
+            }
+            
+            // 显示检查结果
+            showGroupResult(correctCount, totalCount, mode);
+        }
+        
+        // 显示组检查结果
+        function showGroupResult(correct, total, mode) {
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl p-6 z-50 border-2';
+            
+            const percentage = Math.round((correct / total) * 100);
+            let borderColor = 'border-red-300';
+            let textColor = 'text-red-600';
+            let emoji = '😔';
+            
+            if (percentage >= 80) {
+                borderColor = 'border-green-300';
+                textColor = 'text-green-600';
+                emoji = '🎉';
+            } else if (percentage >= 60) {
+                borderColor = 'border-yellow-300';
+                textColor = 'text-yellow-600';
+                emoji = '😊';
+            }
+            
+            resultDiv.className += ` ${borderColor}`;
+            
+            resultDiv.innerHTML = `
+                <div class="text-center">
+                    <div class="text-4xl mb-4">${emoji}</div>
+                    <h3 class="text-xl font-bold mb-2">第 ${currentGroup + 1} 组检查完成</h3>
+                    <p class="text-lg ${textColor} mb-4">正确率: ${correct}/${total} (${percentage}%)</p>
+                    <button onclick="this.parentElement.parentElement.remove()" 
+                            class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                        确定
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(resultDiv);
+            
+            // 3秒后自动关闭
+            setTimeout(() => {
+                if (resultDiv.parentElement) {
+                    resultDiv.remove();
+                }
+            }, 3000);
+        }
+        
+        // 下一组
+        function nextGroup(mode) {
+            // 不再强制要求草稿区有内容，行为与口算一致
+            // if (mode !== 'oral' && !hasDraftContent) {
+            //     showMessage('建议在草稿区写出过程，再进入下一题。', 'info');
+            //     return;
+            // }
+            
+            if (currentGroup < totalGroups[mode] - 1) {
+                currentGroup++;
+                clearCanvas();
+                hasDraftContent = false;
+                if (mode === 'oral') {
+                    renderOralQuestions();
+                } else if (mode === 'vertical') {
+                    renderVerticalQuestions();
+                } else {
+                    renderWordQuestions();
+                }
+            }
+        }
+        
+        // 完成所有题目（最后一组触发：统一审批、评分、错题一次重做、分阶段推进）
+        function finishAllQuestions(mode) {
+            // 直接从界面读取每题输入，确保与实际显示一致
+            const questions = mode === 'oral' ? oralQuestions : mode === 'vertical' ? verticalQuestions : wordQuestions;
+            let correctCount = 0;
+            const wrongItems = [];
+            for (let i = 0; i < questions.length; i++) {
+                const input = document.getElementById(`${mode}-answer-${i}`);
+                const ua = (input?.value ?? '').toString().trim();
+                const ca = questions[i].answer.toString();
+                const isCorrect = ua !== '' && ua === ca;
+                // 同步视觉反馈
+                if (input) {
+                    const card = input.closest('.question-card');
+                    input.style.borderColor = isCorrect ? '#10B981' : '#EF4444';
+                    input.style.backgroundColor = isCorrect ? '#ECFDF5' : '#FEF2F2';
+                    if (card) {
+                        card.style.borderColor = isCorrect ? '#10B981' : '#EF4444';
+                        card.style.borderWidth = '2px';
+                        card.style.backgroundColor = isCorrect ? '#ECFDF5' : '#FEF2F2';
+                    }
+                }
+                // 计分与错题收集
+                if (isCorrect) {
+                    correctCount++;
+                } else {
+                    wrongItems.push({ index: i, question: questions[i].question, correctAnswer: ca });
+                }
+                // 将当前判分同步到用户答案表，避免后续状态不一致
+                recordAnswer(mode, i, ua);
+            }
+            // 计分（一题一分）并更新显示
+            scores[mode] = correctCount;
+            const scoreEl = document.getElementById(`${mode}-score`);
+            if (scoreEl) scoreEl.textContent = correctCount;
+            updateOverallProgress();
+            
+            // 显示审批总结
+            showMessage(`${mode === 'oral' ? '口算题' : mode === 'vertical' ? '竖式计算' : '应用题'}审批完成：${correctCount}/${questions.length} 分。${wrongItems.length ? '有错题需重做（每题一次机会）。' : '全部正确，继续下一阶段！'}`,
+                        wrongItems.length ? 'warning' : 'success');
+            
+            // 若存在错题，进入一次性重做
+            if (wrongItems.length) {
+                startRedo(mode, wrongItems);
+                return;
+            }
+            
+            // 标记当前题型为完成状态
+            completionStatus[mode] = true;
+            
+            // 全部正确，推进到下一阶段或完成
+            currentGroup = 0;
+            clearCanvas();
+            hasDraftContent = false;
+            
+            // 更新进度指示器显示完成状态
+            updateProgressIndicator(currentSection);
+            
+            // 检查是否所有题型都完成
+            const allCompleted = completionStatus.oral && completionStatus.vertical && completionStatus.word;
+            if (allCompleted) {
+                // 所有阶段完成
+                showCompletionPage();
+                const totalScore = scores.oral + scores.vertical + scores.word;
+                const correctRate = totalScore / 50;
+                saveCompletionData(correctRate);
+            } else {
+                // 显示完成消息，但不自动跳转
+                showMessage(`${mode === 'oral' ? '口算题' : mode === 'vertical' ? '竖式计算' : '应用题'}已完成！可以点击其他题型继续练习。`, 'success');
+            }
+        }
+
+        // 检查口算答案
+        function checkOralAnswers() {
+            let correctCount = 0;
+            
+            oralQuestions.forEach((q, index) => {
+                const input = document.getElementById(`oral-answer-${index}`);
+                const userAnswer = parseInt(input.value);
+                
+                if (userAnswer === q.answer) {
+                    input.classList.add('correct');
+                    input.classList.remove('incorrect');
+                    correctCount++;
+                } else {
+                    input.classList.add('incorrect');
+                    input.classList.remove('correct');
+                    wrongAnswers.push({
+                        question: q.question,
+                        userAnswer: userAnswer,
+                        correctAnswer: q.answer,
+                        type: '口算题'
+                    });
+                }
+            });
+            
+            scores.oral = correctCount;
+            document.getElementById('oral-score').textContent = correctCount;
+            
+            if (correctCount >= 16) { // 80%正确率
+                showSuccessMessage('口算题完成！正确率达到80%以上，可以进入下一环节！');
+                setTimeout(() => {
+                    showSection('vertical');
+                }, 2000);
+            } else {
+                showMessage(`口算题正确率不足80%，请重新检查错题后再继续。正确题数：${correctCount}/20`, 'warning');
+            }
+            
+            updateOverallProgress();
+        }
+
+        // 检查竖式答案
+        function checkVerticalAnswers() {
+            let correctCount = 0;
+            
+            verticalQuestions.forEach((q, index) => {
+                const input = document.getElementById(`vertical-answer-${index}`);
+                const userAnswer = parseInt(input.value);
+                
+                if (userAnswer === q.answer) {
+                    input.classList.add('correct');
+                    input.classList.remove('incorrect');
+                    correctCount++;
+                } else {
+                    input.classList.add('incorrect');
+                    input.classList.remove('correct');
+                    wrongAnswers.push({
+                        question: q.question,
+                        userAnswer: userAnswer,
+                        correctAnswer: q.answer,
+                        type: '竖式计算'
+                    });
+                }
+            });
+            
+            scores.vertical = correctCount;
+            document.getElementById('vertical-score').textContent = correctCount;
+            
+            if (correctCount >= 12) { // 80%正确率
+                showSuccessMessage('竖式计算完成！正确率达到80%以上，可以进入下一环节！');
+                setTimeout(() => {
+                    showSection('word');
+                }, 2000);
+            } else {
+                showMessage(`竖式计算正确率不足80%，请重新检查错题后再继续。正确题数：${correctCount}/15`, 'warning');
+            }
+            
+            updateOverallProgress();
+        }
+
+        // 检查应用题答案
+        function checkWordAnswers() {
+            let correctCount = 0;
+            
+            wordQuestions.forEach((q, index) => {
+                const input = document.getElementById(`word-answer-${index}`);
+                const userAnswer = input.value.trim();
+                
+                if (userAnswer == q.answer || userAnswer === q.answer.toString()) {
+                    input.classList.add('correct');
+                    input.classList.remove('incorrect');
+                    correctCount++;
+                } else {
+                    input.classList.add('incorrect');
+                    input.classList.remove('correct');
+                    wrongAnswers.push({
+                        question: q.question,
+                        userAnswer: userAnswer,
+                        correctAnswer: q.answer,
+                        type: '应用题',
+                        solution: q.solution
+                    });
+                }
+            });
+            
+            scores.word = correctCount;
+            document.getElementById('word-score').textContent = correctCount;
+            
+            const totalScore = scores.oral + scores.vertical + scores.word;
+            const correctRate = totalScore / 50;
+            
+            if (correctRate >= 0.8) {
+                showCompletionPage();
+                saveCompletionData(correctRate);
+            } else {
+                showMessage(`应用题正确率不足80%，请重新检查错题后再继续。正确题数：${correctCount}/15`, 'warning');
+            }
+            
+            updateOverallProgress();
+        }
+
+        // 切换到指定题型（新增的自由切换函数）
+        function switchToSection(section) {
+            // 重置当前组为0，确保从第一组开始
+            currentGroup = 0;
+            
+            // 显示指定部分
+            showSection(section);
+            
+            // 重新渲染当前题型的题目
+            if (section === 'oral') {
+                renderOralQuestions();
+            } else if (section === 'vertical') {
+                renderVerticalQuestions();
+            } else if (section === 'word') {
+                renderWordQuestions();
+            }
+        }
+
+        // 显示指定部分
+        function showSection(section) {
+            // 统一隐藏所有部分与口算外层容器
+            const oralWrapper = document.getElementById('oral-draft-wrapper');
+            if (oralWrapper) oralWrapper.classList.add('hidden');
+            document.getElementById('oral-section').classList.add('hidden');
+            document.getElementById('vertical-section').classList.add('hidden');
+            document.getElementById('word-section').classList.add('hidden');
+            
+            // 根据选择显示
+            if (section === 'oral') {
+                if (oralWrapper) oralWrapper.classList.remove('hidden');
+                document.getElementById('oral-section').classList.remove('hidden');
+            } else if (section === 'vertical') {
+                document.getElementById('vertical-section').classList.remove('hidden');
+            } else if (section === 'word') {
+                document.getElementById('word-section').classList.remove('hidden');
+            }
+            
+            // 更新进度指示器
+            updateProgressIndicator(section);
+            
+            currentSection = section;
+        }
+
+        // 更新进度指示器
+        function updateProgressIndicator(section) {
+            const steps = ['oral', 'vertical', 'word'];
+            
+            steps.forEach((step) => {
+                const stepElement = document.getElementById(step + '-step');
+                const circle = stepElement.querySelector('div');
+                const text = stepElement.querySelector('span:last-child');
+                
+                // 移除所有状态类
+                stepElement.classList.remove('completed', 'current');
+                circle.classList.remove('bg-gray-300', 'bg-green-500', 'bg-blue-500');
+                text.classList.remove('text-gray-500', 'text-green-600', 'text-blue-600');
+                stepElement.style.border = '';
+                
+                if (completionStatus[step]) {
+                    // 已完成状态：绿色边框和绿色样式
+                    stepElement.classList.add('completed');
+                    stepElement.style.border = '2px solid #10B981';
+                    stepElement.style.borderRadius = '8px';
+                    circle.classList.add('bg-green-500');
+                    text.classList.add('text-green-600');
+                } else if (step === section) {
+                    // 当前选中状态：蓝色样式
+                    stepElement.classList.add('current');
+                    circle.classList.add('bg-blue-500');
+                    text.classList.add('text-blue-600');
+                } else {
+                    // 未完成状态：灰色样式
+                    circle.classList.add('bg-gray-300');
+                    text.classList.add('text-gray-500');
+                }
+            });
+            
+            // 更新完成步骤
+            const completeStep = document.getElementById('complete-step');
+            const allCompleted = completionStatus.oral && completionStatus.vertical && completionStatus.word;
+            if (allCompleted) {
+                completeStep.style.border = '2px solid #10B981';
+                completeStep.style.borderRadius = '8px';
+                const circle = completeStep.querySelector('div');
+                const text = completeStep.querySelector('span:last-child');
+                circle.classList.remove('bg-gray-300');
+                circle.classList.add('bg-green-500');
+                text.classList.remove('text-gray-500');
+                text.classList.add('text-green-600');
+            }
+        }
+
+        // 更新整体进度
+        function updateOverallProgress() {
+            const totalQuestions = 50;
+            const completedQuestions = scores.oral + scores.vertical + scores.word;
+            const progressPercentage = Math.round((completedQuestions / totalQuestions) * 100);
+            
+            document.getElementById('overall-progress').textContent = `${completedQuestions}/50`;
+            document.getElementById('progress-percentage').textContent = `${progressPercentage}%`;
+            document.getElementById('progress-bar').style.width = `${progressPercentage}%`;
+        }
+
+        // 显示完成页面
+        function showCompletionPage() {
+            document.getElementById('oral-section').classList.add('hidden');
+            document.getElementById('vertical-section').classList.add('hidden');
+            document.getElementById('word-section').classList.add('hidden');
+            document.getElementById('completion-page').classList.remove('hidden');
+            
+            // 更新分数显示
+            document.getElementById('final-oral-score').textContent = scores.oral;
+            document.getElementById('final-vertical-score').textContent = scores.vertical;
+            document.getElementById('final-word-score').textContent = scores.word;
+            document.getElementById('final-total-score').textContent = scores.oral + scores.vertical + scores.word;
+            
+            // 添加动画效果
+            anime({
+                targets: '#completion-page > *',
+                translateY: [50, 0],
+                opacity: [0, 1],
+                delay: anime.stagger(100),
+                duration: 800,
+                easing: 'easeOutQuart'
+            });
+        }
+
+        // 保存完成数据
+        function saveCompletionData(correctRate) {
+            const today = new Date().toISOString().split('T')[0];
+            const userData = JSON.parse(localStorage.getItem('wangqikai_data') || '{}');
+            if (!userData.checkInData) userData.checkInData = {};
+            
+            userData.checkInData[today] = {
+                ...userData.checkInData[today],
+                math: {
+                    completed: true,
+                    time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+                    correctRate: correctRate,
+                    scores: scores
+                }
+            };
+            
+            localStorage.setItem('wangqikai_data', JSON.stringify(userData));
+        }
+
+        // 查看错题
+        function viewWrongAnswers() {
+            document.getElementById('wrong-answers').classList.remove('hidden');
+            const container = document.getElementById('wrong-questions');
+            
+            if (wrongAnswers.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8">
+                        <div class="text-4xl mb-4">🎉</div>
+                        <p class="text-gray-600">太棒了！没有错题！</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = wrongAnswers.map((wa, index) => `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="font-medium text-red-800 mb-2">${wa.type} ${index + 1}</div>
+                            <div class="text-red-700 mb-2">题目: ${wa.question}</div>
+                            <div class="text-red-600 mb-2">你的答案: ${wa.userAnswer || '未作答'}</div>
+                            <div class="text-green-600 font-medium">正确答案: ${wa.correctAnswer}</div>
+                            ${wa.solution ? `<div class="text-blue-600 text-sm mt-2">解题思路: ${wa.solution}</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 记录答案
+        function recordAnswer(mode, index, value) {
+            if (!userAnswers[mode]) userAnswers[mode] = {};
+            userAnswers[mode][index] = (value ?? '').toString().trim();
+        }
+
+        // 开始错题重做（一次机会）
+        function startRedo(mode, items) {
+            redoState = { active: true, mode, items };
+            document.getElementById('wrong-answers').classList.remove('hidden');
+            const container = document.getElementById('wrong-questions');
+            container.innerHTML = `
+                <div class="mb-4">
+                    <div class="text-lg font-bold text-red-700">${mode === 'oral' ? '口算题' : mode === 'vertical' ? '竖式计算' : '应用题'}错题重做（每题一次机会）</div>
+                    <div class="text-sm text-gray-600">错几题，重做几题。提交后将自动判分并决定是否进入下一阶段。</div>
+                </div>
+                ${items.map((it, idx) => `
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-3">
+                        <div class="font-medium mb-2">第 ${it.index + 1} 题：${it.question}</div>
+                        <input type="text" class="answer-input w-32" id="redo-answer-${mode}-${it.index}" placeholder="请输入答案">
+                        <div class="text-sm text-gray-500 mt-1">正确答案：${it.correctAnswer}</div>
+                    </div>
+                `).join('')}
+                <div class="mt-4 flex items-center space-x-3">
+                    <button onclick="submitRedo('${mode}')" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700">提交重做</button>
+                    <button onclick="document.getElementById('wrong-answers').classList.add('hidden')" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700">暂不重做</button>
+                </div>
+            `;
+        }
+
+        // 提交重做并推进阶段
+        function submitRedo(mode) {
+            if (!redoState.active || redoState.mode !== mode) return;
+            const questions = mode === 'oral' ? oralQuestions : mode === 'vertical' ? verticalQuestions : wordQuestions;
+            const stillWrong = [];
+            let fixedCount = 0;
+            for (const it of redoState.items) {
+                const input = document.getElementById(`redo-answer-${mode}-${it.index}`);
+                const ua = (input?.value ?? '').toString().trim();
+                const ca = questions[it.index].answer.toString();
+                if (ua !== '' && ua === ca) {
+                    fixedCount++;
+                    // 记录为最终答案
+                    recordAnswer(mode, it.index, ua);
+                } else {
+                    stillWrong.push(it);
+                }
+            }
+            // 更新分数
+            scores[mode] = scores[mode] + fixedCount;
+            const scoreEl = document.getElementById(`${mode}-score`);
+            if (scoreEl) scoreEl.textContent = scores[mode];
+            updateOverallProgress();
+            
+            if (stillWrong.length) {
+                // 一次机会已用完，保留错题，不推进
+                showMessage(`仍有 ${stillWrong.length} 题未改对，本次重做机会已用完。请复习后重新开始本环节。`, 'error');
+                return;
+            }
+            
+            // 全部改对，恭喜进入下一阶段
+            document.getElementById('wrong-answers').classList.add('hidden');
+            redoState = { active: false, mode: null, items: [] };
+            clearCanvas();
+            hasDraftContent = false;
+            currentGroup = 0;
+            if (mode === 'oral') {
+                showSuccessMessage('恭喜！口算题全部改对，进入竖式计算。');
+                showSection('vertical');
+            } else if (mode === 'vertical') {
+                showSuccessMessage('棒！竖式计算全部改对，进入应用题。');
+                showSection('word');
+            } else {
+                showSuccessMessage('今日数学打卡完成！');
+                showCompletionPage();
+                const totalScore = scores.oral + scores.vertical + scores.word;
+                const correctRate = totalScore / 50;
+                saveCompletionData(correctRate);
+            }
+        }
+
+
+        // 画布相关函数
+        function setTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tool + '-tool').classList.add('active');
+            
+            if (tool === 'eraser') {
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.lineWidth = 20;
+            } else {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.strokeStyle = currentColor;
+                ctx.lineWidth = lineWidth;
+            }
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            hasDraftContent = true;
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+
+        function handleTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
+                                              e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            hasDraftContent = false;
+        }
+
+        // 竖式计算草稿区函数
+        function setVerticalTool(tool) {
+            verticalCurrentTool = tool;
+            document.querySelectorAll('#vertical-section .tool-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('vertical-' + tool + '-tool').classList.add('active');
+            
+            if (tool === 'eraser') {
+                verticalCtx.globalCompositeOperation = 'destination-out';
+                verticalCtx.lineWidth = 20;
+            } else {
+                verticalCtx.globalCompositeOperation = 'source-over';
+                verticalCtx.strokeStyle = currentColor;
+                verticalCtx.lineWidth = lineWidth;
+            }
+        }
+
+        function startVerticalDrawing(e) {
+            verticalIsDrawing = true;
+            const rect = verticalCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            verticalCtx.beginPath();
+            verticalCtx.moveTo(x, y);
+        }
+
+        function drawVertical(e) {
+            if (!verticalIsDrawing) return;
+            
+            const rect = verticalCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            verticalCtx.lineTo(x, y);
+            verticalCtx.stroke();
+        }
+
+        function stopVerticalDrawing() {
+            verticalIsDrawing = false;
+        }
+
+        function handleVerticalTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
+                                              e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            verticalCanvas.dispatchEvent(mouseEvent);
+        }
+
+        function clearVerticalCanvas() {
+            verticalCtx.clearRect(0, 0, verticalCanvas.width, verticalCanvas.height);
+        }
+
+        // 应用题草稿区函数
+        function setWordTool(tool) {
+            wordCurrentTool = tool;
+            document.querySelectorAll('#word-section .tool-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('word-' + tool + '-tool').classList.add('active');
+            
+            if (tool === 'eraser') {
+                wordCtx.globalCompositeOperation = 'destination-out';
+                wordCtx.lineWidth = 20;
+            } else {
+                wordCtx.globalCompositeOperation = 'source-over';
+                wordCtx.strokeStyle = currentColor;
+                wordCtx.lineWidth = lineWidth;
+            }
+        }
+
+        function startWordDrawing(e) {
+            wordIsDrawing = true;
+            const rect = wordCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            wordCtx.beginPath();
+            wordCtx.moveTo(x, y);
+        }
+
+        function drawWord(e) {
+            if (!wordIsDrawing) return;
+            
+            const rect = wordCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            wordCtx.lineTo(x, y);
+            wordCtx.stroke();
+        }
+
+        function stopWordDrawing() {
+            wordIsDrawing = false;
+        }
+
+        function handleWordTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
+                                              e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            wordCanvas.dispatchEvent(mouseEvent);
+        }
+
+        function clearWordCanvas() {
+            wordCtx.clearRect(0, 0, wordCanvas.width, wordCanvas.height);
+        }
+
+        // 显示成功消息
+        function showSuccessMessage(message) {
+            showMessage(message, 'success');
+        }
+
+        // 显示消息
+        function showMessage(message, type = 'info') {
+            const colors = {
+                info: 'bg-blue-100 text-blue-800 border-blue-200',
+                success: 'bg-green-100 text-green-800 border-green-200',
+                warning: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                error: 'bg-red-100 text-red-800 border-red-200'
+            };
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `fixed top-4 right-4 z-50 p-4 rounded-lg border ${colors[type]} max-w-sm`;
+            messageDiv.textContent = message;
+            
+            document.body.appendChild(messageDiv);
+            
+            anime({
+                targets: messageDiv,
+                translateX: [300, 0],
+                opacity: [0, 1],
+                duration: 300,
+                complete: () => {
+                    setTimeout(() => {
+                        anime({
+                            targets: messageDiv,
+                            translateX: [0, 300],
+                            opacity: [1, 0],
+                            duration: 300,
+                            complete: () => {
+                                document.body.removeChild(messageDiv);
+                            }
+                        });
+                    }, 3000);
+                }
+            });
+        }
+
+        // 导航函数
+        function goBack() {
+            window.history.back();
+        }
+
+        function goHome() {
+            window.location.href = 'index.html';
+        }
+    </script>
+<script src="sessions.js"></script>
+</body>
+</html>
+
+        <!-- OCR拍照与题库管理弹窗 -->
+        <div id="ocr-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold">拍照识别试卷（数学）</h3>
+                    <button id="close-ocr" class="text-gray-500 hover:text-gray-700">✖</button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <input id="ocr-file" type="file" accept="image/*" capture="environment" class="w-full" />
+                    </div>
+                    <div id="ocr-preview" class="hidden">
+                        <img id="ocr-img" src="" alt="预览" class="max-h-64 mx-auto rounded-lg border" />
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button id="run-ocr" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">识别文字</button>
+                        <button id="save-ocr" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700" disabled>保存到题库</button>
+                        <button id="open-bank" class="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200">管理题库</button>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">识别结果</label>
+                        <textarea id="ocr-text" class="w-full h-40 border rounded-lg p-3" placeholder="识别的文本会显示在这里"></textarea>
+                    </div>
+                    <div id="ocr-status" class="text-sm text-gray-500"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="bank-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold">题库管理（数学）</h3>
+                    <button id="close-bank" class="text-gray-500 hover:text-gray-700">✖</button>
+                </div>
+                <div class="space-y-4">
+                    <div class="flex items-center space-x-3">
+                        <select id="bank-type" class="border rounded-lg p-2">
+                            <option value="">全部类型</option>
+                            <option value="arithmetic">口算/算式</option>
+                            <option value="word_problem">应用题</option>
+                            <option value="vertical">竖式</option>
+                            <option value="math_general">其他</option>
+                        </select>
+                        <button id="refresh-bank" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">刷新</button>
+                    </div>
+                    <div id="bank-list" class="grid grid-cols-1 gap-3 max-h-[50vh] overflow-auto"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 依赖脚本：Tesseract 与模块 -->
+        <script src="https://unpkg.com/tesseract.js@v4.0.2/dist/tesseract.min.js"></script>
+        <script src="questionBank.js"></script>
+        <script src="ocr.js"></script>
+
+        <script>
+        // OCR与题库交互逻辑（数学）
+        document.addEventListener('DOMContentLoaded', () => {
+            const openBtn = document.getElementById('open-ocr');
+            const modal = document.getElementById('ocr-modal');
+            const closeBtn = document.getElementById('close-ocr');
+            const fileInput = document.getElementById('ocr-file');
+            const previewBox = document.getElementById('ocr-preview');
+            const imgEl = document.getElementById('ocr-img');
+            const runBtn = document.getElementById('run-ocr');
+            const saveBtn = document.getElementById('save-ocr');
+            const bankBtn = document.getElementById('open-bank');
+            const textArea = document.getElementById('ocr-text');
+            const statusEl = document.getElementById('ocr-status');
+
+            const bankModal = document.getElementById('bank-modal');
+            const closeBank = document.getElementById('close-bank');
+            const bankType = document.getElementById('bank-type');
+            const bankList = document.getElementById('bank-list');
+            const refreshBank = document.getElementById('refresh-bank');
+
+            function openModal(){ modal.classList.remove('hidden'); modal.classList.add('flex'); }
+            function closeModal(){ modal.classList.add('hidden'); modal.classList.remove('flex'); }
+            function openBank(){ bankModal.classList.remove('hidden'); bankModal.classList.add('flex'); renderBank(); }
+            function closeBankModal(){ bankModal.classList.add('hidden'); bankModal.classList.remove('flex'); }
+
+            openBtn?.addEventListener('click', openModal);
+            closeBtn?.addEventListener('click', closeModal);
+            bankBtn?.addEventListener('click', openBank);
+            closeBank?.addEventListener('click', closeBankModal);
+
+            fileInput?.addEventListener('change', async (e) => {
+                const file = e.target.files?.[0];
+                if(!file) return;
+                const dataUrl = await OCRUtils.readFileAsDataURL(file);
+                imgEl.src = dataUrl;
+                imgEl.dataset.dataUrl = dataUrl;
+                previewBox.classList.remove('hidden');
+                saveBtn.disabled = true;
+                statusEl.textContent = '图片已选择，点击“识别文字”。';
+            });
+
+            runBtn?.addEventListener('click', async () => {
+                const dataUrl = imgEl.dataset.dataUrl;
+                if(!dataUrl){ statusEl.textContent = '请先选择图片。'; return; }
+                statusEl.textContent = '正在识别中，请稍候…';
+                try {
+                    const text = await OCRUtils.recognize(dataUrl, 'math');
+                    textArea.value = text;
+                    saveBtn.disabled = !text.trim();
+                    statusEl.textContent = '识别完成，可编辑后保存到题库。';
+                } catch(err){
+                    console.error(err);
+                    statusEl.textContent = '识别失败，请重试或更换清晰图片。';
+                }
+            });
+
+            saveBtn?.addEventListener('click', () => {
+                const text = textArea.value.trim();
+                const dataUrl = imgEl.dataset.dataUrl || null;
+                if(!text){ statusEl.textContent = '文本为空，无法保存。'; return; }
+                const entry = QuestionBank.addEntry({ subject: 'math', imageDataUrl: dataUrl, text });
+                statusEl.textContent = '已保存到题库（类型：' + entry.type + '）。';
+                renderBank();
+            });
+
+            refreshBank?.addEventListener('click', renderBank);
+            bankType?.addEventListener('change', renderBank);
+
+            function renderBank(){
+                const type = bankType.value || null;
+                const items = QuestionBank.list({ subject: 'math', type });
+                if(items.length === 0){
+                    bankList.innerHTML = '<div class="text-gray-500">暂无题目</div>';
+                    return;
+                }
+                bankList.innerHTML = items.map(e => `
+                  <div class="border rounded-xl p-3 flex space-x-3">
+                    ${e.imageDataUrl ? `<img src="${e.imageDataUrl}" class="w-20 h-20 object-cover rounded">` : ''}
+                    <div class="flex-1">
+                      <div class="text-sm text-gray-500">类型：${e.type}</div>
+                      <textarea data-id="${e.id}" class="w-full border rounded p-2 mt-1">${e.text.replace(/</g,'&lt;')}</textarea>
+                      <div class="mt-2 flex space-x-2">
+                        <button data-act="update" data-id="${e.id}" class="px-3 py-1 bg-blue-600 text-white rounded">更新</button>
+                        <button data-act="delete" data-id="${e.id}" class="px-3 py-1 bg-red-600 text-white rounded">删除</button>
+                      </div>
+                    </div>
+                  </div>
+                `).join('');
+                bankList.querySelectorAll('button').forEach(btn => {
+                    btn.addEventListener('click', (ev) => {
+                        const id = btn.getAttribute('data-id');
+                        const act = btn.getAttribute('data-act');
+                        if(act === 'update'){
+                            const ta = bankList.querySelector(`textarea[data-id="${id}"]`);
+                            QuestionBank.update(id, { text: ta.value });
+                        } else if(act === 'delete'){
+                            QuestionBank.remove(id);
+                            renderBank();
+                        }
+                    });
+                });
+            }
+        });
+        </script>
+
+<!-- 屏幕适配开关（右上角） -->
+<div id="viewport-switcher" class="fixed top-3 right-3 z-50 select-none">
+  <div class="relative">
+    <button id="adapt-toggle" class="flex items-center space-x-2 px-3 py-2 bg-white/80 backdrop-blur shadow-sm border border-gray-200 rounded-full hover:bg-white">
+      <span id="adapt-icon">🧭</span>
+      <span id="adapt-label" class="text-sm">自适应</span>
+    </button>
+    <div id="adapt-menu" class="absolute right-0 mt-2 w-44 bg-white border border-gray-200 shadow-xl rounded-xl p-2 hidden">
+      <button data-adapt="auto" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>🧭</span><span>自动识别</span></button>
+      <button data-adapt="desktop" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>💻</span><span>电脑端</span></button>
+      <button data-adapt="tablet" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>📟</span><span>平板端</span></button>
+      <button data-adapt="mobile" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>📱</span><span>手机端</span></button>
+    </div>
+  </div>
+</div>
+
+<style>
+  html[data-adapt="desktop"] body { max-width: 1280px; margin: 0 auto; }
+  html[data-adapt="tablet"] body { max-width: 768px; margin: 0 auto; padding-left: 8px; padding-right: 8px; }
+  html[data-adapt="mobile"] body { max-width: 390px; margin: 0 auto; padding-left: 12px; padding-right: 12px; }
+  body { transition: max-width 0.25s ease; }
+</style>
+<script>
+(function(){
+  const root = document.documentElement;
+  const KEY = 'adapt-mode';
+  function detectMode(){ const w = window.innerWidth; if(w < 640) return 'mobile'; if(w < 1024) return 'tablet'; return 'desktop'; }
+  function updateLabel(mode){ const label=document.getElementById('adapt-label'); const icon=document.getElementById('adapt-icon'); if(!label||!icon) return; const map={auto:['自适应','🧭'],desktop:['电脑端','💻'],tablet:['平板端','📟'],mobile:['手机端','📱']}; const p=map[mode]||map.auto; label.textContent=p[0]; icon.textContent=p[1]; }
+  function apply(mode){ if(mode==='auto'){ updateLabel('auto'); return; } root.setAttribute('data-adapt',mode); updateLabel(mode); }
+  function init(){ const saved=localStorage.getItem(KEY)||'auto'; apply(saved); if(saved==='auto'){ const setByScreen=()=>{ const m=detectMode(); root.setAttribute('data-adapt',m); }; setByScreen(); window.addEventListener('resize',setByScreen); } }
+  document.addEventListener('DOMContentLoaded',()=>{ const toggle=document.getElementById('adapt-toggle'); const menu=document.getElementById('adapt-menu'); if(toggle){ toggle.addEventListener('click',()=>menu.classList.toggle('hidden')); document.addEventListener('click',(e)=>{ if(!menu.contains(e.target) && e.target!==toggle){ menu.classList.add('hidden'); } }); }
+    ['auto','desktop','tablet','mobile'].forEach(m=>{ const el=document.querySelector('#adapt-menu [data-adapt="'+m+'"]'); if(!el) return; el.addEventListener('click',()=>{ localStorage.setItem(KEY,m); if(m==='auto'){ updateLabel('auto'); const setByScreen=()=>{ const mm=detectMode(); root.setAttribute('data-adapt',mm); }; setByScreen(); window.addEventListener('resize',setByScreen); } else { root.setAttribute('data-adapt',m); updateLabel(m); window.removeEventListener('resize',()=>{}); } menu.classList.add('hidden'); }); });
+    init();
+  });
+})();
+</script>
+
+</body>
+</html>

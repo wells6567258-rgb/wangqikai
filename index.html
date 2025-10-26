@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>汪琪凯的日常打卡系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="theme.css">
+    <script src="theme.js" defer></script>
+    <style>
+        * {
+            font-family: 'Noto Sans SC', sans-serif;
+        }
+        
+        .hero-bg {
+            /* 统一为暖粉主题，与下方卡片背景一致 */
+            background: linear-gradient(135deg, var(--sun-milk) 0%, var(--sun-pink-soft) 65%, var(--sun-pink) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+        }
+        
+        .calendar-day {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .calendar-day:hover {
+            transform: scale(1.1);
+        }
+        
+        .completed {
+            background: #7ED321 !important;
+            color: white;
+        }
+        
+        .today {
+            border: 3px solid #F5A623 !important;
+            background: #FFF3CD !important;
+        }
+        
+        .particle-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        .content-layer {
+            position: relative;
+            z-index: 2;
+        }
+        
+        .achievement-badge {
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.35s;
+            transform-origin: 50% 50%;
+        }
+    </style>
+</head>
+<body class="tw-theme bg-gray-50 min-h-screen">
+    <!-- 背景粒子动画容器 -->
+    <div id="particle-container" class="fixed inset-0 z-0"></div>
+    
+    <!-- 主要内容 -->
+    <div class="content-layer relative z-10">
+        <!-- 头部区域 -->
+        <header class="hero-bg text-white py-8">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between py-3 sm:py-4">
+                <div class="flex items-center space-x-3 sm:space-x-4">
+                    <img id="avatar" src="resources/avatar.png" alt="头像" class="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-md border-2 border-white/70">
+                    <div>
+                        <h1 id="site-title" class="text-xl sm:text-2xl font-bold text-gray-800 leading-tight">汪琪凯的学习天地</h1>
+                        <div class="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-gray-600 mt-1">
+                            <span class="px-2 py-1 bg-green-50 text-green-700 rounded-full">✨ 每天进步一点点</span>
+                            <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded-full">📅 今日打卡：<span id="today-status">未打卡</span></span>
+                        </div>
+                        <div class="mt-2 flex items-center gap-2 text-xs sm:text-sm">
+                            <button id="btn-change-avatar" class="px-2 py-1 bg-white/90 text-gray-700 rounded hover:bg-white shadow-sm">更换图片</button>
+                            <button id="btn-edit-title" class="px-2 py-1 bg-white/90 text-gray-700 rounded hover:bg-white shadow-sm">更改文字</button>
+                            <button id="btn-reset-checkin" class="px-2 py-1 bg-white/90 text-rose-700 rounded hover:bg-white shadow-sm border border-rose-200">清空打卡数据</button>
+                            <input id="avatar-upload" type="file" accept="image/*" class="hidden">
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-2xl font-bold" id="current-date"></div>
+                    <div class="text-blue-100">连续打卡 <span class="text-yellow-300 font-bold" id="streak-days">12</span> 天</div>
+                </div>
+            </div>
+        </div>
+        </header>
+
+        <!-- 主要内容区域 -->
+        <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+                
+                <!-- 左侧：日历区域 -->
+                <div class="lg:col-span-2">
+                    <div class="bg-white rounded-2xl shadow-lg p-5 card-hover h-full">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800">
+                                <span class="mr-2">📅</span>打卡日历
+                            </h2>
+                            <div class="flex items-center space-x-2">
+                                <button id="prev-month" class="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors">
+                                    ←
+                                </button>
+                                <span id="current-month" class="text-lg font-semibold text-gray-700 min-w-32 text-center"></span>
+                                <button id="next-month" class="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors">
+                                    →
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 日历网格 -->
+                        <div class="grid grid-cols-7 gap-2 mb-4">
+                            <div class="text-center text-sm font-medium text-gray-500 py-2">日</div>
+                            <div class="text-center text-sm font-medium text-gray-500 py-2">一</div>
+                            <div class="text-center text-sm font-medium text-gray-500 py-2">二</div>
+                            <div class="text-center text-sm font-medium text-gray-500 py-2">三</div>
+                            <div class="text-center text-sm font-medium text-gray-500 py-2">四</div>
+                            <div class="text-center text-sm font-medium text-gray-500 py-2">五</div>
+                            <div class="text-center text-sm font-medium text-gray-500 py-2">六</div>
+                        </div>
+                        
+                        <div id="calendar-grid" class="grid grid-cols-7 gap-2">
+                            <!-- 日历日期将通过JavaScript生成 -->
+                        </div>
+                        
+                        <!-- 日历图例 -->
+                        <div class="flex items-center justify-center space-x-6 mt-6 text-sm">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-4 h-4 bg-green-500 rounded"></div>
+                                <span class="text-gray-600">已完成</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-4 h-4 bg-gray-200 rounded"></div>
+                                <span class="text-gray-600">未完成</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-4 h-4 bg-yellow-300 rounded border-2 border-yellow-500"></div>
+                                <span class="text-gray-600">今天</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧：今日打卡区域 -->
+                <div class="h-full">
+                    <!-- 今日任务 -->
+                    <div class="bg-white rounded-2xl shadow-lg p-5 card-hover h-full flex flex-col">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                            <span class="mr-2">🎯</span>今日打卡
+                        </h2>
+                        
+                        <div class="space-y-4 flex-1" id="today-tasks">
+                            <!-- 任务卡片将通过JavaScript生成 -->
+                        </div>
+                    </div>
+
+                    <!-- 统计概览移至底部（横排） -->
+
+                    <!-- 成就展示模块已移除 -->
+                </div>
+            </div>
+
+            <!-- 底部：学习统计（横排） -->
+            <div class="bg-white rounded-2xl shadow-lg p-5 card-hover mt-2">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                    <span class="mr-2">📊</span>学习统计
+                </h2>
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                    <!-- 左侧：完成率与进度条 -->
+                    <div class="flex-1 min-w-[260px]">
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-600">本周完成率</span>
+                            <span class="text-2xl font-bold text-green-600" id="week-rate">85%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 mt-2">
+                            <div class="bg-gradient-to-r from-green-400 to-blue-500 h-3 rounded-full transition-all duration-1000" style="width: 85%" id="progress-bar"></div>
+                        </div>
+                    </div>
+                    <!-- 右侧：统计数字横排 -->
+                    <div class="grid grid-cols-2 gap-6 md:w-auto">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600" id="total-days">45</div>
+                            <div class="text-sm text-gray-500">总打卡天数</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-orange-600" id="total-score">1280</div>
+                            <div class="text-sm text-gray-500">累计积分</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 学习趋势模块已移除 -->
+        </main>
+    </div>
+
+    <!-- 日期详情模态框 -->
+    <div id="date-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 transform transition-all">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-gray-800" id="modal-date"></h3>
+                <button id="close-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="modal-content">
+                <!-- 日期详情内容将通过JavaScript生成 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 脚本 -->
+    <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.4.2/lib/p5.min.js"></script>
+    <script src="main.js?v=2"></script>
+<script>
+// 头像与标题自定义
+document.addEventListener('DOMContentLoaded', function(){
+  var avatarEl = document.getElementById('avatar');
+  var titleEl = document.getElementById('site-title');
+  var uploadInput = document.getElementById('avatar-upload');
+  var btnChangeAvatar = document.getElementById('btn-change-avatar');
+  var btnEditTitle = document.getElementById('btn-edit-title');
+
+  // 加载本地存储
+  try {
+    var savedAvatar = localStorage.getItem('custom_avatar');
+    if(savedAvatar && avatarEl){ avatarEl.src = savedAvatar; }
+    var savedTitle = localStorage.getItem('custom_title');
+    if(savedTitle && titleEl){ titleEl.textContent = savedTitle; document.title = savedTitle + ' - 日常打卡系统'; }
+  } catch(e) {}
+
+  // 更换头像
+  if(btnChangeAvatar && uploadInput && avatarEl){
+    btnChangeAvatar.addEventListener('click', function(){ uploadInput.click(); });
+    uploadInput.addEventListener('change', function(e){
+      var file = e.target.files && e.target.files[0];
+      if(!file) return;
+      var reader = new FileReader();
+      reader.onload = function(){ var url = reader.result; avatarEl.src = url; try{ localStorage.setItem('custom_avatar', url); }catch(e){} };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // 更改标题文字
+  if(btnEditTitle && titleEl){
+    btnEditTitle.addEventListener('click', function(){
+      var current = titleEl.textContent || '';
+      var next = prompt('请输入主页标题：', current);
+      if(next && next.trim()){
+        next = next.trim();
+        titleEl.textContent = next;
+        document.title = next + ' - 日常打卡系统';
+        try{ localStorage.setItem('custom_title', next); }catch(e){}
+      }
+    });
+  }
+});
+</script>
+
+<!-- 屏幕适配开关（右上角） -->
+<div id="viewport-switcher" class="fixed top-3 right-3 z-50 select-none">
+  <div class="relative">
+    <button id="adapt-toggle" class="flex items-center space-x-2 px-3 py-2 bg-white/80 backdrop-blur shadow-sm border border-gray-200 rounded-full hover:bg-white">
+      <span id="adapt-icon">🧭</span>
+      <span id="adapt-label" class="text-sm">自适应</span>
+    </button>
+    <div id="adapt-menu" class="absolute right-0 mt-2 w-44 bg-white border border-gray-200 shadow-xl rounded-xl p-2 hidden">
+      <button data-adapt="auto" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>🧭</span><span>自动识别</span></button>
+      <button data-adapt="desktop" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>💻</span><span>电脑端</span></button>
+      <button data-adapt="tablet" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>📟</span><span>平板端</span></button>
+      <button data-adapt="mobile" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>📱</span><span>手机端</span></button>
+    </div>
+  </div>
+</div>
+
+<style>
+  html[data-adapt="desktop"] body { max-width: 1280px; margin: 0 auto; }
+  html[data-adapt="tablet"] body { max-width: 768px; margin: 0 auto; padding-left: 8px; padding-right: 8px; }
+  html[data-adapt="mobile"] body { max-width: 390px; margin: 0 auto; padding-left: 12px; padding-right: 12px; }
+  body { transition: max-width 0.25s ease; }
+</style>
+<script>
+(function(){
+  const root = document.documentElement;
+  const KEY = 'adapt-mode';
+  function detectMode(){ const w = window.innerWidth; if(w < 640) return 'mobile'; if(w < 1024) return 'tablet'; return 'desktop'; }
+  function updateLabel(mode){ const label=document.getElementById('adapt-label'); const icon=document.getElementById('adapt-icon'); if(!label||!icon) return; const map={auto:['自适应','🧭'],desktop:['电脑端','💻'],tablet:['平板端','📟'],mobile:['手机端','📱']}; const p=map[mode]||map.auto; label.textContent=p[0]; icon.textContent=p[1]; }
+  function apply(mode){ if(mode==='auto'){ updateLabel('auto'); return; } root.setAttribute('data-adapt',mode); updateLabel(mode); }
+  function init(){ const saved=localStorage.getItem(KEY)||'auto'; apply(saved); if(saved==='auto'){ const setByScreen=()=>{ const m=detectMode(); root.setAttribute('data-adapt',m); }; setByScreen(); window.addEventListener('resize',setByScreen); } }
+  document.addEventListener('DOMContentLoaded',()=>{ const toggle=document.getElementById('adapt-toggle'); const menu=document.getElementById('adapt-menu'); if(toggle){ toggle.addEventListener('click',()=>menu.classList.toggle('hidden')); document.addEventListener('click',(e)=>{ if(!menu.contains(e.target) && e.target!==toggle){ menu.classList.add('hidden'); } }); }
+    ['auto','desktop','tablet','mobile'].forEach(m=>{ const el=document.querySelector('#adapt-menu [data-adapt="'+m+'"]'); if(!el) return; el.addEventListener('click',()=>{ localStorage.setItem(KEY,m); if(m==='auto'){ updateLabel('auto'); const setByScreen=()=>{ const mm=detectMode(); root.setAttribute('data-adapt',mm); }; setByScreen(); window.addEventListener('resize',setByScreen); } else { root.setAttribute('data-adapt',m); updateLabel(m); window.removeEventListener('resize',()=>{}); } menu.classList.add('hidden'); }); });
+    init();
+  });
+})();
+</script>
+
+</body>
+</html>

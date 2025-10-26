@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>24点卡牌游戏 - 汪琪凯的学习天地</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="theme.css">
+    <script src="theme.js" defer></script>
+    <style>
+        * {
+            font-family: 'Noto Sans SC', sans-serif;
+        }
+
+        .card {
+            width: 120px;
+            height: 180px;
+            border-radius: 12px;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .card:hover {
+            transform: translateY(-8px) scale(1.05);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+        
+        .card.selected {
+            transform: translateY(-12px) scale(1.1);
+            box-shadow: 0 12px 32px rgba(74, 144, 226, 0.4);
+            border: 3px solid #4A90E2;
+        }
+        
+        /* 新增：已使用卡牌样式 */
+        .card.used {
+            filter: grayscale(1);
+            opacity: 0.6;
+            cursor: not-allowed;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border-color: #ddd;
+        }
+        .card.used:hover {
+            transform: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .card-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-align: center;
+            line-height: 1;
+        }
+        
+        .card-suit {
+            font-size: 2rem;
+            text-align: center;
+        }
+        
+        .red {
+            color: #DC2626;
+        }
+        
+        .black {
+            color: #1F2937;
+        }
+        
+        .mode-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .mode-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        
+        .mode-card.selected {
+            border: 3px solid #4A90E2;
+            background: #EBF4FF;
+        }
+        
+        .timer-circle {
+            transform: rotate(-90deg);
+        }
+        
+        .timer-progress {
+            transition: stroke-dashoffset 1s linear;
+        }
+        
+        .expression-input {
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .celebration {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="tw-theme bg-gradient-to-br from-blue-50 to-green-50 min-h-screen">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <button onclick="goBack()" class="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
+                        ← 返回
+                    </button>
+                    <h1 class="text-2xl font-bold text-gray-800">24点卡牌游戏</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm text-gray-600">
+                        今日得分: <span class="font-bold text-blue-600" id="today-score">0</span>
+                    </div>
+                    <button onclick="goHome()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        主页
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <!-- 游戏模式选择 -->
+        <div class="mb-8" id="mode-selection">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">选择游戏模式</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                <!-- 练习模式 -->
+                <div class="mode-card bg-white rounded-2xl p-6 shadow-lg" onclick="selectMode('practice')">
+                    <div class="text-center">
+                        <div class="text-6xl mb-4">🎮</div>
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">练习模式</h3>
+                        <p class="text-gray-600 mb-4">无时间限制，自由练习<br>可以反复刷新题目</p>
+                        <div class="text-sm text-blue-600 font-medium">适合熟悉游戏规则</div>
+                    </div>
+                </div>
+                
+                <!-- 打卡模式 -->
+                <div class="mode-card bg-white rounded-2xl p-6 shadow-lg" onclick="selectMode('checkin')">
+                    <div class="text-center">
+                        <div class="text-6xl mb-4">⏰</div>
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">打卡模式</h3>
+                        <p class="text-gray-600 mb-4">每题40秒倒计时<br>完成50题即可打卡</p>
+                        <div class="text-sm text-orange-600 font-medium">挑战自我极限</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 游戏界面 -->
+        <div class="hidden" id="game-interface">
+            <!-- 游戏状态栏（合并到下方统计，隐藏此模块） -->
+            <div class="bg-white rounded-2xl shadow-lg p-6 mb-6" style="display:none;">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-6">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600" id="current-score">0</div>
+                            <div class="text-sm text-gray-500">当前得分</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600" id="correct-count">0</div>
+                            <div class="text-sm text-gray-500">答对题数</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-orange-600" id="total-questions">0</div>
+                            <div class="text-sm text-gray-500">总题数</div>
+                        </div>
+                    </div>
+                    <!-- 倒计时器保留但整体隐藏 -->
+                    <div class="text-center" id="timer-container" style="display: none;">
+                        <div class="relative w-16 h-16">
+                            <svg class="timer-circle w-16 h-16" viewBox="0 0 36 36">
+                                <path class="timer-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                      fill="none" stroke="#E5E7EB" stroke-width="3"/>
+                                <path class="timer-progress" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                      fill="none" stroke="#EF4444" stroke-width="3" stroke-dasharray="100, 100" stroke-dashoffset="0"/>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <span class="text-lg font-bold text-red-600" id="timer-text">10:00</span>
+                            </div>
+                        </div>
+                        <div class="text-sm text-gray-500 mt-1">剩余时间</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡牌区域 -->
+            <div id="top-row" class="md:flex md:space-x-6 mb-4">
+                <div class="md:flex-1 bg-white rounded-2xl shadow-lg p-6 mb-4">
+                    <div class="flex justify-center items-center space-x-6 mb-4" id="cards-container">
+                        <!-- 卡牌将通过JavaScript生成 -->
+                    </div>
+                    
+                    <!-- 操作按钮 -->
+                    <div class="flex justify-center space-x-4 mb-6">
+                        <button onclick="generateNewCards()" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                            刷新题目
+                        </button>
+                        <button onclick="showHint()" class="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors font-medium">
+                            提示
+                        </button>
+                        <button onclick="clearExpression()" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium">
+                            清除
+                        </button>
+                    </div>
+                </div>
+                <div id="stats-slot" class="md:w-1/3 mt-6 md:mt-0"></div>
+            </div>
+
+            <!-- 表达式输入区域 -->
+            <div class="bg-white rounded-2xl shadow-lg p-5 mb-4">
+            <h3 class="text-xl font-bold text-gray-800 mb-3">输入你的答案</h3>
+                <div class="expression-input bg-gray-50 rounded-lg p-4 mb-4 min-h-16 flex items-center justify-center text-center" id="expression-display">
+                    点击数字和运算符构建表达式
+                </div>
+                
+                <!-- 数字由卡牌填入，无独立数字按钮 -->
+                <div class="text-sm text-gray-500 text-center mb-4">数字由点击上方卡牌自动填入</div>
+
+
+
+                <!-- 运算符按钮 -->
+                <div class="grid grid-cols-4 gap-3 mb-4">
+                    <button class="operator-btn bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-3 rounded-lg transition-colors" data-operator="+">+</button>
+                    <button class="operator-btn bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-3 rounded-lg transition-colors" data-operator="-">-</button>
+                    <button class="operator-btn bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-3 rounded-lg transition-colors" data-operator="*">×</button>
+                    <button class="operator-btn bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-3 rounded-lg transition-colors" data-operator="/">÷</button>
+                    <button class="operator-btn bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold py-3 rounded-lg transition-colors" data-operator="(">(</button>
+                    <button class="operator-btn bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold py-3 rounded-lg transition-colors" data-operator=")">)</button>
+                    <button class="bg-red-100 hover:bg-red-200 text-red-800 font-bold py-3 rounded-lg transition-colors" onclick="deleteLastChar()">←</button>
+                    <button class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors" onclick="submitAnswer()">提交</button>
+                </div>
+            </div>
+
+            <!-- 提示信息 -->
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 hidden" id="hint-panel">
+                <div class="flex items-center">
+                    <span class="text-yellow-600 mr-2">💡</span>
+                    <div>
+                        <div class="font-medium text-yellow-800">提示</div>
+                        <div class="text-yellow-700 text-sm" id="hint-text"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 游戏统计 -->
+            <div id="stats-panel" class="bg-white rounded-2xl shadow-lg p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">游戏统计</h3>
+                    <!-- 本题倒计时（仅打卡模式显示） -->
+                    <div id="question-timer" class="flex items-center" style="display:none;">
+                        <div class="text-center">
+                            <div class="relative w-16 h-16 mx-auto">
+                                <svg viewBox="0 0 36 36" class="w-16 h-16">
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                          fill="none" stroke="#E5E7EB" stroke-width="3" />
+                                    <path id="question-timer-progress" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                          fill="none" stroke="#F59E0B" stroke-width="3" stroke-dasharray="100,100" stroke-dashoffset="0" />
+                                </svg>
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <span class="text-lg font-bold text-orange-600" id="question-timer-text">00:40</span>
+                                </div>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">本题剩余时间</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-blue-600" id="current-score">0</div>
+                        <div class="text-sm text-gray-500">当前得分</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-600" id="correct-count">0</div>
+                        <div class="text-sm text-gray-500">答对题数</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-orange-600" id="total-questions">0</div>
+                        <div class="text-sm text-gray-500">总题数</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-600" id="success-rate">0%</div>
+                        <div class="text-sm text-gray-500">成功率</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-orange-600" id="best-time">--:--</div>
+                        <div class="text-sm text-gray-500">最佳时间</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-purple-600" id="total-practice">0</div>
+                        <div class="text-sm text-gray-500">总练习次数</div>
+                    </div>
+                </div>
+                <!-- 保留一个隐含元素以兼容旧统计代码（不展示） -->
+                <div id="practice-score" class="hidden">0</div>
+             </div>
+        </div>
+    </main>
+
+    <!-- 庆祝动画容器 -->
+    <div id="celebration-container"></div>
+
+    <!-- 中心提示框覆盖层 -->
+    <div id="center-hint" class="fixed inset-0 flex items-center justify-center pointer-events-none z-50 hidden">
+        <div id="center-hint-box" class="bg-yellow-50 border border-yellow-200 rounded-xl shadow-xl px-5 py-4 text-yellow-800">
+            <div class="font-semibold mb-1">提示</div>
+            <div id="center-hint-text" class="text-sm"></div>
+        </div>
+    </div>
+
+    <script>
+        // 24点游戏核心逻辑
+        let gameMode = '';
+        let currentCards = [];
+        let currentExpression = '';
+        let gameStats = {
+            score: 0,
+            correctCount: 0,
+            totalQuestions: 0,
+            startTime: null,
+            timeLeft: 600 // 10分钟
+        };
+        let timerInterval = null;
+        const QUESTION_TIME = 40; // 每题40秒
+        let availableNumbers = [];
+        let currentSolutionExpr = null; // 保存当前题目的一个可行解表达式
+
+        // 卡牌花色和数值定义
+        const suits = [
+            { name: 'hearts', symbol: '♥', color: 'red' },
+            { name: 'diamonds', symbol: '♦', color: 'red' },
+            { name: 'clubs', symbol: '♣', color: 'black' },
+            { name: 'spades', symbol: '♠', color: 'black' }
+        ];
+
+        const cardValues = [
+            { value: 1, display: 'A', realValue: 1 },
+            { value: 2, display: '2', realValue: 2 },
+            { value: 3, display: '3', realValue: 3 },
+            { value: 4, display: '4', realValue: 4 },
+            { value: 5, display: '5', realValue: 5 },
+            { value: 6, display: '6', realValue: 6 },
+            { value: 7, display: '7', realValue: 7 },
+            { value: 8, display: '8', realValue: 8 },
+            { value: 9, display: '9', realValue: 9 },
+            { value: 10, display: '10', realValue: 10 },
+            { value: 11, display: 'J', realValue: 10 },
+            { value: 12, display: 'Q', realValue: 10 },
+            { value: 13, display: 'K', realValue: 10 }
+        ];
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            loadGameStats();
+            moveStatsToRight();
+        });
+
+        // 将统计面板移动到右侧槽位
+        function moveStatsToRight() {
+            const slot = document.getElementById('stats-slot');
+            const panel = document.getElementById('stats-panel');
+            if (slot && panel) {
+                slot.appendChild(panel);
+            }
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            document.querySelectorAll('.operator-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    addToExpression(this.dataset.operator);
+                });
+            });
+        }
+
+        // 选择游戏模式
+        function selectMode(mode) {
+            gameMode = mode;
+            
+            // 更新UI
+            document.querySelectorAll('.mode-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+            
+            // 显示游戏界面
+            setTimeout(() => {
+                document.getElementById('mode-selection').style.display = 'none';
+                document.getElementById('game-interface').classList.remove('hidden');
+                
+                // 开始游戏
+                startGame();
+            }, 500);
+        }
+
+        // 开始游戏
+        function startGame() {
+            gameStats.startTime = Date.now();
+            gameStats.score = 0;
+            gameStats.correctCount = 0;
+            gameStats.totalQuestions = 0;
+
+            // 练习模式不显示倒计时，打卡模式显示题目计时器
+            if (gameMode === 'checkin') {
+                const qt = document.getElementById('question-timer');
+                if (qt) qt.style.display = 'flex';
+            }
+            
+            updateStats();
+            generateNewCards();
+            // 打卡模式从第一题开始计时
+            if (gameMode === 'checkin') startQuestionTimer();
+        }
+
+        // 开始题目级计时器（打卡模式）
+        function startQuestionTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            gameStats.timeLeft = QUESTION_TIME;
+            updateTimer();
+            timerInterval = setInterval(() => {
+                gameStats.timeLeft--;
+                updateTimer();
+                if (gameStats.timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    onQuestionTimeout();
+                }
+            }, 1000);
+        }
+
+        // 本题倒计时结束处理
+        function onQuestionTimeout() {
+            showMessage('时间到！已切换到下一题', 'error');
+            setTimeout(() => {
+                generateNewCards();
+                if (gameMode === 'checkin') startQuestionTimer();
+            }, 800);
+        }
+
+        // 更新计时器显示（题目级，总时长40秒）
+        function updateTimer() {
+            const minutes = Math.floor(gameStats.timeLeft / 60);
+            const seconds = gameStats.timeLeft % 60;
+            const textEl = document.getElementById('question-timer-text');
+            if (textEl) {
+                textEl.textContent = `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+            const progress = (gameStats.timeLeft / QUESTION_TIME) * 100;
+            const circumference = 2 * Math.PI * 15.9155;
+            const offset = circumference - (progress / 100) * circumference;
+            const progressEl = document.getElementById('question-timer-progress');
+            if (progressEl) progressEl.style.strokeDashoffset = offset;
+        }
+
+        // 生成新卡牌
+        function generateNewCards() {
+            let cards = [];
+            let hasSolution = false;
+            
+            // 循环直到找到有解的牌组
+            while (!hasSolution) {
+                cards = [];
+                for (let i = 0; i < 4; i++) {
+                    const randomCard = cardValues[Math.floor(Math.random() * cardValues.length)];
+                    const randomSuit = suits[Math.floor(Math.random() * suits.length)];
+                    cards.push({
+                        ...randomCard,
+                        suit: randomSuit,
+                        used: false
+                    });
+                }
+                
+                // 检查是否有解，且保存一个解法表达式
+                hasSolution = check24PointSolution(cards.map(card => card.realValue));
+            }
+            
+            currentCards = cards;
+            availableNumbers = cards.map(card => card.realValue);
+            renderCards();
+            clearExpression();
+            updateAvailableNumbers();
+            
+            gameStats.totalQuestions++;
+            updateStats();
+            if (gameMode === 'checkin') startQuestionTimer();
+        }
+
+        // 渲染扑克牌
+        function renderCards() {
+            const container = document.getElementById('cards-container');
+            container.innerHTML = '';
+
+            currentCards.forEach(card => {
+                const el = document.createElement('div');
+                el.className = `card ${card.suit.color}`;
+                el.innerHTML = `
+                    <div class="card-number">${card.display}</div>
+                    <div class="card-suit">${card.suit.symbol}</div>
+                `;
+                el.addEventListener('click', () => onCardClick(card, el));
+                container.appendChild(el);
+            });
+        }
+
+        // 点击卡牌，加入对应真实值
+        function onCardClick(card, el) {
+            if (card.used) return; // 已使用不可再次使用
+            const val = String(card.realValue);
+            addToExpression(val);
+            card.used = true;
+            if (el) {
+                el.classList.add('used');
+                el.style.pointerEvents = 'none';
+            }
+            updateAvailableNumbers();
+        }
+
+         // 检查24点是否有解（简化版算法）
+         function check24PointSolution(numbers) {
+             const expr = find24Solution(numbers);
+             if (expr) {
+                 currentSolutionExpr = expr;
+                 return true;
+             }
+             currentSolutionExpr = null;
+             return false;
+         }
+
+         // 返回一个能计算出24的表达式（若无解返回null）
+         function find24Solution(numbers) {
+             const permutations = getPermutations(numbers);
+             const ops = ['+', '-', '*', '/'];
+             
+             function safeEval(expression) {
+                 try {
+                     const v = eval(expression);
+                     if (Math.abs(v - 24) < 1e-6) return true;
+                 } catch (_) {}
+                 return false;
+             }
+             
+             for (const a of permutations) {
+                 for (const o1 of ops) {
+                     for (const o2 of ops) {
+                         for (const o3 of ops) {
+                             const x1 = `(${a[0]}${o1}${a[1]})${o2}${a[2]}${o3}${a[3]}`;
+                             if (safeEval(x1)) return x1;
+                             const x2 = `${a[0]}${o1}(${a[1]}${o2}${a[2]})${o3}${a[3]}`;
+                             if (safeEval(x2)) return x2;
+                             const x3 = `${a[0]}${o1}${a[1]}${o2}(${a[2]}${o3}${a[3]})`;
+                             if (safeEval(x3)) return x3;
+                             const x4 = `(${a[0]}${o1}${a[1]})${o2}(${a[2]}${o3}${a[3]})`;
+                             if (safeEval(x4)) return x4;
+                             const x5 = `${a[0]}${o1}(${a[1]}${o2}(${a[2]}${o3}${a[3]}))`;
+                             if (safeEval(x5)) return x5;
+                         }
+                     }
+                 }
+             }
+             return null;
+         }
+
+        // 生成排列（缺失补上）
+        function getPermutations(arr) {
+            const res = [];
+            function backtrack(path, used) {
+                if (path.length === arr.length) {
+                    res.push(path.slice());
+                    return;
+                }
+                for (let i = 0; i < arr.length; i++) {
+                    if (used[i]) continue;
+                    used[i] = true;
+                    path.push(arr[i]);
+                    backtrack(path, used);
+                    path.pop();
+                    used[i] = false;
+                }
+            }
+            backtrack([], Array(arr.length).fill(false));
+            return res;
+        }
+
+         // 添加到表达式
+         function addToExpression(value) {
+             if (value === '11') value = '10'; // J
+             else if (value === '12') value = '10'; // Q
+             else if (value === '13') value = '10'; // K
+             else if (value === '14') value = '1'; // A
+             
+             currentExpression += value;
+             updateExpressionDisplay();
+         }
+
+         // 更新表达式显示
+         function updateExpressionDisplay() {
+             const display = document.getElementById('expression-display');
+             if (currentExpression) {
+                 let displayExpr = currentExpression
+                     .replace(/\*/g, '×')
+                     .replace(/\//g, '÷');
+                 display.textContent = displayExpr + ' = ?';
+             } else {
+                 // 移除占位文案，保持空白框
+                 display.textContent = '';
+             }
+         }
+
+         // 更新可用数字（使用真实值统计）
+         function updateAvailableNumbers() {
+             const exprNums = currentExpression.match(/\d+/g) || [];
+             availableNumbers = currentCards.filter(c => !c.used).map(c => c.realValue);
+         }
+
+         // 显示提示（屏幕中间小框显示3秒）
+         function showHint() {
+             let text = '';
+             if (currentSolutionExpr) {
+                 const m = currentSolutionExpr.match(/^\((\d+)([+\-*\/])(\d+)\)/);
+                 if (m) {
+                     const a = m[1], op = m[2], b = m[3];
+                     const opShow = op === '*' ? '×' : (op === '/' ? '÷' : op);
+                     text = `先算 ${a} ${opShow} ${b}`;
+                 } else {
+                     const m2 = currentSolutionExpr.match(/(\d+)([+\-*\/])(\d+)/);
+                     if (m2) {
+                         const a = m2[1], op = m2[2], b = m2[3];
+                         const opShow = op === '*' ? '×' : (op === '/' ? '÷' : op);
+                         text = `先算 ${a} ${opShow} ${b}`;
+                     }
+                 }
+             }
+             if (!text) {
+                 text = '试试先把两个数合并成一个中间结果，例如 6 × 4';
+             }
+             const overlay = document.getElementById('center-hint');
+             const hintTextEl = document.getElementById('center-hint-text');
+             hintTextEl.textContent = text;
+             overlay.classList.remove('hidden');
+             anime({
+                 targets: '#center-hint-box',
+                 scale: [0.9, 1],
+                 opacity: [0, 1],
+                 duration: 200,
+                 easing: 'easeOutQuad'
+             });
+             setTimeout(() => {
+                 anime({
+                     targets: '#center-hint-box',
+                     scale: [1, 0.95],
+                     opacity: [1, 0],
+                     duration: 200,
+                     easing: 'easeInQuad',
+                     complete: () => overlay.classList.add('hidden')
+                 });
+             }, 3000);
+         }
+
+        // 清除表达式
+        function clearExpression() {
+            currentExpression = '';
+            // 重置卡牌使用状态
+            currentCards.forEach(c => { c.used = false; });
+            // 还原卡牌样式和点击
+            const container = document.getElementById('cards-container');
+            if (container) {
+                Array.from(container.children).forEach(el => {
+                    el.classList.remove('used');
+                    el.style.pointerEvents = '';
+                });
+            }
+            availableNumbers = currentCards.map(card => card.realValue);
+            updateExpressionDisplay();
+            updateAvailableNumbers();
+        }
+
+        // 删除最后一个字符
+        function deleteLastChar() {
+            currentExpression = currentExpression.slice(0, -1);
+            updateExpressionDisplay();
+            // 重新计算可用数字
+            updateAvailableNumbers();
+        }
+
+
+
+        // 提交答案
+        function submitAnswer() {
+            if (!currentExpression) return;
+            
+            try {
+                const result = eval(currentExpression);
+                
+                if (Math.abs(result - 24) < 0.0001) {
+                    // 答案正确
+                    handleCorrectAnswer();
+                } else {
+                    // 答案错误
+                    handleWrongAnswer(result);
+                }
+            } catch (e) {
+                showMessage('表达式格式错误，请检查括号匹配', 'error');
+            }
+        }
+
+        // 处理正确答案
+        function handleCorrectAnswer() {
+            // 正确后停止当前题目的计时
+            if (timerInterval) clearInterval(timerInterval);
+            gameStats.correctCount++;
+            gameStats.score += 10;
+            
+            // 显示庆祝动画
+            showCelebration();
+            
+            // 更新统计
+            updateStats();
+            
+            // 检查是否完成打卡
+            if (gameMode === 'checkin' && gameStats.correctCount >= 50) {
+                completeCheckIn();
+                return;
+            }
+            
+            // 生成新题目并重新开始计时
+            setTimeout(() => {
+                generateNewCards();
+                if (gameMode === 'checkin') startQuestionTimer();
+            }, 2000);
+        }
+
+        // 处理错误答案
+        function handleWrongAnswer(result) {
+            showMessage(`结果是 ${result}，不是24哦！再试试看。`, 'warning');
+            
+            // 添加震动效果
+            anime({
+                targets: '#expression-display',
+                translateX: [-10, 10, -10, 10, 0],
+                duration: 500,
+                easing: 'easeInOutQuart'
+            });
+        }
+
+
+
+        // 显示庆祝动画
+        function showCelebration() {
+            const celebration = document.createElement('div');
+            celebration.className = 'celebration';
+            celebration.innerHTML = `
+                <div class="text-6xl mb-4">🎉</div>
+                <div class="text-2xl font-bold text-green-600 mb-2">太棒了！</div>
+                <div class="text-gray-600">答案正确！+10分</div>
+            `;
+            
+            document.getElementById('celebration-container').appendChild(celebration);
+            
+            anime({
+                targets: celebration,
+                scale: [0, 1.2, 1],
+                opacity: [0, 1],
+                duration: 800,
+                easing: 'easeOutElastic(1, .8)',
+                complete: () => {
+                    setTimeout(() => {
+                        anime({
+                            targets: celebration,
+                            scale: [1, 0],
+                            opacity: [1, 0],
+                            duration: 300,
+                            complete: () => {
+                                document.getElementById('celebration-container').removeChild(celebration);
+                            }
+                        });
+                    }, 1500);
+                }
+            });
+            
+            // 五彩纸屑效果
+            createConfetti();
+        }
+
+        // 创建五彩纸屑效果
+        function createConfetti() {
+            const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4'];
+            
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.position = 'fixed';
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.top = '-10px';
+                confetti.style.width = '10px';
+                confetti.style.height = '10px';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.borderRadius = '50%';
+                confetti.style.pointerEvents = 'none';
+                confetti.style.zIndex = '1000';
+                
+                document.body.appendChild(confetti);
+                
+                anime({
+                    targets: confetti,
+                    translateY: '100vh',
+                    translateX: (Math.random() - 0.5) * 200,
+                    rotate: Math.random() * 360,
+                    duration: Math.random() * 2000 + 1000,
+                    easing: 'easeInQuad',
+                    complete: () => {
+                        document.body.removeChild(confetti);
+                    }
+                });
+            }
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            document.getElementById('current-score').textContent = gameStats.score;
+            document.getElementById('correct-count').textContent = gameStats.correctCount;
+            document.getElementById('total-questions').textContent = gameStats.totalQuestions;
+            
+            const successRate = gameStats.totalQuestions > 0 ? 
+                Math.round((gameStats.correctCount / gameStats.totalQuestions) * 100) : 0;
+            document.getElementById('success-rate').textContent = successRate + '%';
+        }
+
+        // 完成打卡
+        function completeCheckIn() {
+            clearInterval(timerInterval);
+            
+            // 保存打卡数据
+            const today = new Date().toISOString().split('T')[0];
+            const userData = JSON.parse(localStorage.getItem('wangqikai_data') || '{}');
+            if (!userData.checkInData) userData.checkInData = {};
+            
+            userData.checkInData[today] = {
+                ...userData.checkInData[today],
+                cards: {
+                    completed: true,
+                    time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+                    score: gameStats.score
+                }
+            };
+            
+            localStorage.setItem('wangqikai_data', JSON.stringify(userData));
+            
+            // 显示完成动画
+            showCompletionAnimation();
+        }
+
+        // 显示完成动画
+        function showCompletionAnimation() {
+            const completion = document.createElement('div');
+            completion.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            completion.innerHTML = `
+                <div class="bg-white rounded-2xl p-8 text-center max-w-md mx-4">
+                    <div class="text-6xl mb-4">🏆</div>
+                    <h2 class="text-3xl font-bold text-green-600 mb-4">打卡成功！</h2>
+                    <p class="text-gray-600 mb-6">恭喜你完成了24点卡牌打卡挑战！</p>
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600">${gameStats.correctCount}</div>
+                            <div class="text-sm text-gray-500">答对题数</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600">${gameStats.score}</div>
+                            <div class="text-sm text-gray-500">获得分数</div>
+                        </div>
+                    </div>
+                    <button onclick="goBack()" class="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                        返回主页
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(completion);
+        }
+
+        // 结束游戏
+        function endGame() {
+            clearInterval(timerInterval);
+            
+            if (gameStats.correctCount >= 50) {
+                completeCheckIn();
+            } else {
+                // 显示失败动画
+                showFailureAnimation();
+            }
+        }
+
+        // 显示失败动画
+        function showFailureAnimation() {
+            const failure = document.createElement('div');
+            failure.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            failure.innerHTML = `
+                <div class="bg-white rounded-2xl p-8 text-center max-w-md mx-4">
+                    <div class="text-6xl mb-4">⏰</div>
+                    <h2 class="text-3xl font-bold text-red-600 mb-4">时间到！</h2>
+                    <p class="text-gray-600 mb-6">很遗憾，没有在规定时间内完成50题</p>
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600">${gameStats.correctCount}</div>
+                            <div class="text-sm text-gray-500">完成题数</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600">${gameStats.score}</div>
+                            <div class="text-sm text-gray-500">获得分数</div>
+                        </div>
+                    </div>
+                    <div class="flex space-x-4">
+                        <button onclick="restartGame()" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                            再试一次
+                        </button>
+                        <button onclick="goBack()" class="flex-1 px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium">
+                            返回主页
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(failure);
+        }
+
+        // 重新开始游戏
+        function restartGame() {
+            location.reload();
+        }
+
+        // 显示消息
+        function showMessage(message, type = 'info') {
+            const messageDiv = document.createElement('div');
+            const colors = {
+                info: 'bg-blue-100 text-blue-800 border-blue-200',
+                success: 'bg-green-100 text-green-800 border-green-200',
+                warning: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                error: 'bg-red-100 text-red-800 border-red-200'
+            };
+            
+            messageDiv.className = `fixed top-4 right-4 z-50 p-4 rounded-lg border ${colors[type]} max-w-sm`;
+            messageDiv.textContent = message;
+            
+            document.body.appendChild(messageDiv);
+            
+            anime({
+                targets: messageDiv,
+                translateX: [300, 0],
+                opacity: [0, 1],
+                duration: 300,
+                complete: () => {
+                    setTimeout(() => {
+                        anime({
+                            targets: messageDiv,
+                            translateX: [0, 300],
+                            opacity: [1, 0],
+                            duration: 300,
+                            complete: () => {
+                                document.body.removeChild(messageDiv);
+                            }
+                        });
+                    }, 3000);
+                }
+            });
+        }
+
+        // 加载游戏统计
+        function loadGameStats() {
+            const stats = JSON.parse(localStorage.getItem('cards_game_stats') || '{}');
+            document.getElementById('practice-score').textContent = stats.practiceScore || 0;
+            document.getElementById('total-practice').textContent = stats.totalPractice || 0;
+            document.getElementById('best-time').textContent = stats.bestTime || '--:--';
+        }
+
+        // 保存游戏统计
+        function saveGameStats() {
+            const stats = {
+                practiceScore: gameStats.score,
+                totalPractice: (JSON.parse(localStorage.getItem('cards_game_stats') || '{}').totalPractice || 0) + 1,
+                bestTime: gameMode === 'checkin' ? formatTime(600 - gameStats.timeLeft) : null
+            };
+            localStorage.setItem('cards_game_stats', JSON.stringify(stats));
+        }
+
+        // 格式化时间
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${minutes}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // 导航函数
+        function goBack() {
+            window.history.back();
+        }
+
+        function goHome() {
+            window.location.href = 'index.html';
+        }
+    </script>
+
+<!-- 屏幕适配开关（右上角） -->
+<div id="viewport-switcher" class="fixed top-3 right-3 z-50 select-none">
+  <div class="relative">
+    <button id="adapt-toggle" class="flex items-center space-x-2 px-3 py-2 bg-white/80 backdrop-blur shadow-sm border border-gray-200 rounded-full hover:bg-white">
+      <span id="adapt-icon">🧭</span>
+      <span id="adapt-label" class="text-sm">自适应</span>
+    </button>
+    <div id="adapt-menu" class="absolute right-0 mt-2 w-44 bg-white border border-gray-200 shadow-xl rounded-xl p-2 hidden">
+      <button data-adapt="auto" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>🧭</span><span>自动识别</span></button>
+      <button data-adapt="desktop" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>💻</span><span>电脑端</span></button>
+      <button data-adapt="tablet" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>📟</span><span>平板端</span></button>
+      <button data-adapt="mobile" class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center space-x-2"><span>📱</span><span>手机端</span></button>
+    </div>
+  </div>
+</div>
+
+<style>
+  html[data-adapt="desktop"] body { max-width: 1280px; margin: 0 auto; }
+  html[data-adapt="tablet"] body { max-width: 768px; margin: 0 auto; padding-left: 8px; padding-right: 8px; }
+  html[data-adapt="mobile"] body { max-width: 390px; margin: 0 auto; padding-left: 12px; padding-right: 12px; }
+  body { transition: max-width 0.25s ease; }
+</style>
+<script>
+(function(){
+  const root = document.documentElement;
+  const KEY = 'adapt-mode';
+  function detectMode(){ const w = window.innerWidth; if(w < 640) return 'mobile'; if(w < 1024) return 'tablet'; return 'desktop'; }
+  function updateLabel(mode){ const label=document.getElementById('adapt-label'); const icon=document.getElementById('adapt-icon'); if(!label||!icon) return; const map={auto:['自适应','🧭'],desktop:['电脑端','💻'],tablet:['平板端','📟'],mobile:['手机端','📱']}; const p=map[mode]||map.auto; label.textContent=p[0]; icon.textContent=p[1]; }
+  function apply(mode){ if(mode==='auto'){ updateLabel('auto'); return; } root.setAttribute('data-adapt',mode); updateLabel(mode); }
+  function init(){ const saved=localStorage.getItem(KEY)||'auto'; apply(saved); if(saved==='auto'){ const setByScreen=()=>{ const m=detectMode(); root.setAttribute('data-adapt',m); }; setByScreen(); window.addEventListener('resize',setByScreen); } }
+  document.addEventListener('DOMContentLoaded',()=>{ const toggle=document.getElementById('adapt-toggle'); const menu=document.getElementById('adapt-menu'); if(toggle){ toggle.addEventListener('click',()=>menu.classList.toggle('hidden')); document.addEventListener('click',(e)=>{ if(!menu.contains(e.target) && e.target!==toggle){ menu.classList.add('hidden'); } }); }
+    ['auto','desktop','tablet','mobile'].forEach(m=>{ const el=document.querySelector('#adapt-menu [data-adapt="'+m+'"]'); if(!el) return; el.addEventListener('click',()=>{ localStorage.setItem(KEY,m); if(m==='auto'){ updateLabel('auto'); const setByScreen=()=>{ const mm=detectMode(); root.setAttribute('data-adapt',mm); }; setByScreen(); window.addEventListener('resize',setByScreen); } else { root.setAttribute('data-adapt',m); updateLabel(m); window.removeEventListener('resize',()=>{}); } menu.classList.add('hidden'); }); });
+    init();
+  });
+})();
+</script>
+
+<script src="sessions.js"></script>
+</body>
+</html>
