@@ -152,7 +152,8 @@ function addPressEffect(button){
 }
 
 function initDraggableButtons(){
-  const targets = Array.from(document.querySelectorAll('button[data-draggable], .draggable-btn, .pronunciation-btn, #pronunciation-btn'));
+  // 仅对标记为可拖拽的按钮启用拖拽，避免普通功能按钮（如发音按钮）因点击后被设为fixed造成“消失/位置跳动”现象。
+  const targets = Array.from(document.querySelectorAll('button[data-draggable], .draggable-btn'));
   targets.forEach((el, idx)=> makeElementDraggable(el, { key: el.getAttribute('data-drag-key') || `drag-${idx}` }));
 }
 

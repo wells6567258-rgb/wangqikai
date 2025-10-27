@@ -72,6 +72,12 @@
         .pronunciation-btn:active {
             transform: scale(0.95);
         }
+
+        .sentence-play-btn {
+            transition: all 0.2s ease;
+        }
+        .sentence-play-btn:hover { transform: scale(1.1); }
+        .sentence-play-btn:active { transform: scale(0.95); }
         
         .progress-bar {
             transition: width 0.5s ease;
@@ -244,7 +250,10 @@
              
              <div class="bg-gray-50 rounded-lg p-4">
                  <div class="text-sm text-gray-600 mb-2">例句：</div>
-                 <div class="english-font text-lg text-gray-800 mb-2" id="current-example">Loading example...</div>
+                 <div class="flex items-center gap-2 mb-2">
+                     <div class="english-font text-lg text-gray-800" id="current-example">Loading example...</div>
+                     <button onclick="playExampleSentence()" class="sentence-play-btn w-8 h-8 bg-pink-600 text-white rounded-full flex items-center justify-center text-base hover:bg-pink-700" aria-label="播放例句">🔈</button>
+                 </div>
                  <div class="text-sm text-gray-600" id="current-example-translation">例句翻译加载中...</div>
              </div>
          </div>
@@ -391,6 +400,13 @@
         let currentRecordingUrl = null;
         let recordingTranscript = '';
         let recordingConfidence = 0;
+
+        // iOS/iPad 录音兼容（Web Audio + WAV编码）
+        let audioContext = null;
+        let sourceNode = null;
+        let processorNode = null;
+        let recordedBuffers = [];
+        let recordedSampleRate = 44100;
         
         // 默写分页与随机相关状态
         let dictationOrder = [];           // 当前测试的索引顺序
@@ -503,6 +519,7 @@
             });
             document.getElementById('start-weekly-test')?.addEventListener('click', toggleWeeklyTest);
             checkReadingCompletionAndUnlock();
+            initRecordingSupportLabel();
          });
 
         // 初始化轮播
@@ -639,6 +656,22 @@
             btnDetect && btnDetect.addEventListener('click', detectRecording);
         }
 
+        // 根据设备能力调整录音按钮文案，提前给出提示
+        function initRecordingSupportLabel(){
+            const btnStart = document.getElementById('btn-start-record');
+            if(!btnStart) return;
+            const supportsMR = typeof MediaRecorder !== 'undefined';
+            const supportsAudioContext = !!(window.AudioContext || window.webkitAudioContext);
+            if(!supportsMR && supportsAudioContext){
+                btnStart.textContent = '🎤 开始录音（兼容）';
+                const tip = '检测到当前浏览器不支持标准录音，将启用兼容模式（WAV）';
+                showMessage(tip, 'info');
+            } else if(!supportsMR && !supportsAudioContext){
+                const tip = '当前设备不支持录音，请更换Safari(iOS14+)或桌面浏览器。';
+                showMessage(tip, 'error');
+            }
+        }
+
         // 更新当前单词显示
         function updateCurrentWord() {
             const wordData = wordDatabase[currentWordIndex];
@@ -691,30 +724,71 @@
             speechSynthesis.speak(utterance);
         }
 
+        // 播放例句（短句）
+        function playExampleSentence(){
+            const wordData = wordDatabase[currentWordIndex];
+            if(!wordData || !wordData.example) return;
+            const utterance = new SpeechSynthesisUtterance(wordData.example);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.9;
+            utterance.pitch = 1;
+            const btn = document.querySelector('.sentence-play-btn');
+            if (typeof anime !== 'undefined' && btn) {
+                anime({ targets: btn, scale: [1, 1.15, 1], duration: 600, easing: 'easeInOutQuart' });
+            }
+            try { speechSynthesis.cancel(); } catch(_){}
+            speechSynthesis.speak(utterance);
+        }
+
         // 开始录音（MediaRecorder + 语音识别累计文本）
         function startRecording() {
             if (isRecording) { showMessage('正在录音中，请先停止。', 'warning'); return; }
-            navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } }).then(stream => {
                 mediaStream = stream;
-                const mimeType = (function(){
-                    const types = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/ogg'];
-                    return types.find(t => MediaRecorder.isTypeSupported?.(t)) || '';
-                })();
-                try { mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined); }
-                catch (err) { showMessage('录音初始化失败：' + err.message, 'error'); return; }
-                audioChunks = [];
-                mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) audioChunks.push(e.data); };
-                mediaRecorder.onstop = () => {
-                    if (audioChunks.length) {
-                        const blob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
-                        currentRecordingBlob = blob;
-                        if (currentRecordingUrl) URL.revokeObjectURL(currentRecordingUrl);
-                        currentRecordingUrl = URL.createObjectURL(blob);
-                        const audioEl = document.getElementById('recording-audio');
-                        if (audioEl) { audioEl.src = currentRecordingUrl; audioEl.style.display = 'block'; }
+                const supportsMR = typeof MediaRecorder !== 'undefined';
+                if (supportsMR) {
+                    const mimeType = (function(){
+                        const types = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/ogg'];
+                        return types.find(t => MediaRecorder.isTypeSupported?.(t)) || '';
+                    })();
+                    try { mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined); }
+                    catch (err) { mediaRecorder = null; }
+                }
+
+                if (mediaRecorder) {
+                    audioChunks = [];
+                    const mimeType = mediaRecorder.mimeType || 'audio/webm';
+                    mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) audioChunks.push(e.data); };
+                    mediaRecorder.onstop = () => {
+                        if (audioChunks.length) {
+                            const blob = new Blob(audioChunks, { type: mimeType });
+                            currentRecordingBlob = blob;
+                            if (currentRecordingUrl) URL.revokeObjectURL(currentRecordingUrl);
+                            currentRecordingUrl = URL.createObjectURL(blob);
+                            const audioEl = document.getElementById('recording-audio');
+                            if (audioEl) { audioEl.src = currentRecordingUrl; audioEl.style.display = 'block'; }
+                        }
+                    };
+                    mediaRecorder.start();
+                } else {
+                    // iOS/iPad 兼容：使用Web Audio收集PCM并在停止时编码为WAV
+                    try {
+                        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        recordedSampleRate = audioContext.sampleRate || 44100;
+                        sourceNode = audioContext.createMediaStreamSource(stream);
+                        processorNode = audioContext.createScriptProcessor(4096, 1, 1);
+                        recordedBuffers = [];
+                        processorNode.onaudioprocess = e => {
+                            const input = e.inputBuffer.getChannelData(0);
+                            recordedBuffers.push(new Float32Array(input));
+                        };
+                        sourceNode.connect(processorNode);
+                        processorNode.connect(audioContext.destination);
+                    } catch (err) {
+                        showMessage('录音初始化失败：' + err.message, 'error');
+                        return;
                     }
-                };
-                mediaRecorder.start();
+                }
                 // 语音识别（累计文本，停止后由检测按钮评分）
                 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
                 recordingTranscript = '';
@@ -741,7 +815,7 @@
                     showMessage('当前浏览器不支持语音识别，仅保存录音。', 'warning');
                 }
                 isRecording = true;
-                showMessage('开始录音，请朗读当前单词。', 'info');
+                showMessage(mediaRecorder ? '开始录音，请朗读当前单词。' : '开始录音（iOS兼容模式），请朗读当前单词。', 'info');
             }).catch(err => {
                 const tip = err && err.name === 'NotAllowedError' ? '请授予麦克风权限（地址栏麦克风图标）' : '无法访问麦克风：' + err.message;
                 showMessage(tip, 'error');
@@ -753,6 +827,24 @@
             if (!isRecording) { showMessage('未在录音。', 'warning'); return; }
             try { mediaRecorder && mediaRecorder.stop(); } catch (_) {}
             try { recognition && recognition.stop(); } catch (_) {}
+            // iOS兼容：停止Web Audio并编码WAV
+            if (!mediaRecorder && processorNode) {
+                try {
+                    processorNode.disconnect();
+                    sourceNode && sourceNode.disconnect();
+                    processorNode.onaudioprocess = null;
+                    audioContext && audioContext.close().catch(()=>{});
+                } catch(_){}
+                if (recordedBuffers.length) {
+                    const wavBlob = encodeWAV(recordedBuffers, recordedSampleRate);
+                    currentRecordingBlob = wavBlob;
+                    if (currentRecordingUrl) URL.revokeObjectURL(currentRecordingUrl);
+                    currentRecordingUrl = URL.createObjectURL(wavBlob);
+                    const audioEl = document.getElementById('recording-audio');
+                    if (audioEl) { audioEl.src = currentRecordingUrl; audioEl.style.display = 'block'; }
+                }
+                recordedBuffers = [];
+            }
             isRecording = false;
             showMessage('录音已结束，可以播放或检测。', 'success');
         }
@@ -779,6 +871,41 @@
             if (pass) { gameStats.pronunciationCorrect++; updateWordProgress('read', true); }
             else { updateWordProgress('read', false); }
             updateStats();
+        }
+
+        // 将Float32Array缓冲编码为WAV(PCM16)
+        function encodeWAV(buffers, sampleRate){
+            const mergedLength = buffers.reduce((sum, b)=> sum + b.length, 0);
+            const result = new Float32Array(mergedLength);
+            let offset = 0; buffers.forEach(b=>{ result.set(b, offset); offset += b.length; });
+            // 转换为PCM16
+            const pcm16 = new Int16Array(result.length);
+            for(let i=0;i<result.length;i++){
+                let s = Math.max(-1, Math.min(1, result[i]));
+                pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            // 写WAV头
+            const headerSize = 44;
+            const buffer = new ArrayBuffer(headerSize + pcm16.length * 2);
+            const view = new DataView(buffer);
+            const writeString = (dv, offset, str)=>{ for(let i=0;i<str.length;i++){ dv.setUint8(offset+i, str.charCodeAt(i)); } };
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + pcm16.length * 2, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true); // PCM
+            view.setUint16(20, 1, true);  // format = 1
+            view.setUint16(22, 1, true);  // mono
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true); // byte rate
+            view.setUint16(32, 2, true);             // block align
+            view.setUint16(34, 16, true);            // bits per sample
+            writeString(view, 36, 'data');
+            view.setUint32(40, pcm16.length * 2, true);
+            // PCM数据
+            const pcmView = new DataView(buffer, headerSize);
+            for(let i=0;i<pcm16.length;i++){ pcmView.setInt16(i*2, pcm16[i], true); }
+            return new Blob([view, pcmView], { type: 'audio/wav' });
         }
         function evaluatePronunciationDetailed(transcript, confidence) {
             const target = (wordDatabase[currentWordIndex] || {}).word || '';
