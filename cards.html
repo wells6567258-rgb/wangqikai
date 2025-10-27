@@ -201,8 +201,8 @@
             </div>
 
             <!-- 卡牌区域 -->
-            <div id="top-row" class="md:flex md:space-x-6 mb-4">
-                <div class="md:flex-1 bg-white rounded-2xl shadow-lg p-6 mb-4">
+            <div id="top-row" class="md:flex md:space-x-6 md:items-stretch mb-4">
+                <div class="md:flex-1 bg-white rounded-2xl shadow-lg p-6 mb-4 md:mb-0">
                     <div class="flex justify-center items-center space-x-6 mb-4" id="cards-container">
                         <!-- 卡牌将通过JavaScript生成 -->
                     </div>
@@ -226,16 +226,7 @@
             <!-- 表达式输入区域 -->
             <div class="bg-white rounded-2xl shadow-lg p-5 mb-4">
             <h3 class="text-xl font-bold text-gray-800 mb-3">输入你的答案</h3>
-                <div class="expression-input bg-gray-50 rounded-lg p-4 mb-4 min-h-16 flex items-center justify-center text-center" id="expression-display">
-                    点击数字和运算符构建表达式
-                </div>
-                
-                <!-- 数字由卡牌填入，无独立数字按钮 -->
-                <div class="text-sm text-gray-500 text-center mb-4">数字由点击上方卡牌自动填入</div>
-
-
-
-                <!-- 运算符按钮 -->
+                <!-- 运算符按钮：放到上方 -->
                 <div class="grid grid-cols-4 gap-3 mb-4">
                     <button class="operator-btn bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-3 rounded-lg transition-colors" data-operator="+">+</button>
                     <button class="operator-btn bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-3 rounded-lg transition-colors" data-operator="-">-</button>
@@ -246,6 +237,14 @@
                     <button class="bg-red-100 hover:bg-red-200 text-red-800 font-bold py-3 rounded-lg transition-colors" onclick="deleteLastChar()">←</button>
                     <button class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors" onclick="submitAnswer()">提交</button>
                 </div>
+
+                <!-- 答题框：移动到符号下方 -->
+                <div class="expression-input bg-gray-50 rounded-lg p-4 mb-4 min-h-16 flex items-center justify-center text-center" id="expression-display">
+                    点击数字和运算符构建表达式
+                </div>
+                
+                <!-- 数字由卡牌填入，无独立数字按钮提示 -->
+                <div class="text-sm text-gray-500 text-center mb-4">数字由点击上方卡牌自动填入</div>
             </div>
 
             <!-- 提示信息 -->
@@ -378,6 +377,8 @@
             const panel = document.getElementById('stats-panel');
             if (slot && panel) {
                 slot.appendChild(panel);
+                // 让右侧统计面板与左侧卡牌容器等高对齐（在flex容器中拉伸）
+                panel.classList.add('h-full');
             }
         }
 
@@ -531,49 +532,72 @@
             updateAvailableNumbers();
         }
 
-         // 检查24点是否有解（简化版算法）
+         // 基于递归DFS的24点求解（完整括号覆盖）
+         let currentSolutionSteps = [];
+
          function check24PointSolution(numbers) {
-             const expr = find24Solution(numbers);
-             if (expr) {
-                 currentSolutionExpr = expr;
+             const result = find24Solution(numbers);
+             if (result) {
+                 currentSolutionExpr = result.expr;
+                 currentSolutionSteps = result.steps || [];
                  return true;
              }
              currentSolutionExpr = null;
+             currentSolutionSteps = [];
              return false;
          }
 
-         // 返回一个能计算出24的表达式（若无解返回null）
+         // 返回一个能计算出24的表达式与步骤（若无解返回null）
          function find24Solution(numbers) {
-             const permutations = getPermutations(numbers);
-             const ops = ['+', '-', '*', '/'];
-             
-             function safeEval(expression) {
-                 try {
-                     const v = eval(expression);
-                     if (Math.abs(v - 24) < 1e-6) return true;
-                 } catch (_) {}
-                 return false;
-             }
-             
-             for (const a of permutations) {
-                 for (const o1 of ops) {
-                     for (const o2 of ops) {
-                         for (const o3 of ops) {
-                             const x1 = `(${a[0]}${o1}${a[1]})${o2}${a[2]}${o3}${a[3]}`;
-                             if (safeEval(x1)) return x1;
-                             const x2 = `${a[0]}${o1}(${a[1]}${o2}${a[2]})${o3}${a[3]}`;
-                             if (safeEval(x2)) return x2;
-                             const x3 = `${a[0]}${o1}${a[1]}${o2}(${a[2]}${o3}${a[3]})`;
-                             if (safeEval(x3)) return x3;
-                             const x4 = `(${a[0]}${o1}${a[1]})${o2}(${a[2]}${o3}${a[3]})`;
-                             if (safeEval(x4)) return x4;
-                             const x5 = `${a[0]}${o1}(${a[1]}${o2}(${a[2]}${o3}${a[3]}))`;
-                             if (safeEval(x5)) return x5;
+             const EPS = 1e-6;
+
+             function dfs(nums, exprs) {
+                 if (nums.length === 1) {
+                     if (Math.abs(nums[0] - 24) < EPS) {
+                         return { expr: exprs[0], steps: [] };
+                     }
+                     return null;
+                 }
+
+                 for (let i = 0; i < nums.length; i++) {
+                     for (let j = i + 1; j < nums.length; j++) {
+                         const a = nums[i], b = nums[j];
+                         const ea = exprs[i], eb = exprs[j];
+
+                         const restNums = [];
+                         const restExprs = [];
+                         for (let k = 0; k < nums.length; k++) {
+                             if (k !== i && k !== j) {
+                                 restNums.push(nums[k]);
+                                 restExprs.push(exprs[k]);
+                             }
+                         }
+
+                         const candidates = [
+                             { val: a + b, expr: `(${ea}+${eb})`, step: `${ea} + ${eb}` },
+                             { val: a - b, expr: `(${ea}-${eb})`, step: `${ea} - ${eb}` },
+                             { val: b - a, expr: `(${eb}-${ea})`, step: `${eb} - ${ea}` },
+                             { val: a * b, expr: `(${ea}*${eb})`, step: `${ea} × ${eb}` },
+                         ];
+                         if (Math.abs(b) > EPS) candidates.push({ val: a / b, expr: `(${ea}/${eb})`, step: `${ea} ÷ ${eb}` });
+                         if (Math.abs(a) > EPS) candidates.push({ val: b / a, expr: `(${eb}/${ea})`, step: `${eb} ÷ ${ea}` });
+
+                         for (const cand of candidates) {
+                             const nextNums = restNums.concat([cand.val]);
+                             const nextExprs = restExprs.concat([cand.expr]);
+                             const res = dfs(nextNums, nextExprs);
+                             if (res) {
+                                 res.steps.unshift(cand.step);
+                                 return res;
+                             }
                          }
                      }
                  }
+                 return null;
              }
-             return null;
+
+             const initialExprs = numbers.map(n => String(n));
+             return dfs(numbers, initialExprs);
          }
 
         // 生成排列（缺失补上）
@@ -631,19 +655,19 @@
          // 显示提示（屏幕中间小框显示3秒）
          function showHint() {
              let text = '';
-             if (currentSolutionExpr) {
-                 const m = currentSolutionExpr.match(/^\((\d+)([+\-*\/])(\d+)\)/);
+             if (currentSolutionSteps && currentSolutionSteps.length > 0) {
+                 // 使用求解流程的第一步，运算符显示为中文符号
+                 const step = currentSolutionSteps[0]
+                     .replace(/\*/g, '×')
+                     .replace(/\//g, '÷');
+                 text = `先算 ${step}`;
+             } else if (currentSolutionExpr) {
+                 // 回退：从表达式中提取首个二元运算提示
+                 const m = currentSolutionExpr.match(/(\d+|\([^()]+\))([+\-*\/])(\d+|\([^()]+\))/);
                  if (m) {
                      const a = m[1], op = m[2], b = m[3];
                      const opShow = op === '*' ? '×' : (op === '/' ? '÷' : op);
                      text = `先算 ${a} ${opShow} ${b}`;
-                 } else {
-                     const m2 = currentSolutionExpr.match(/(\d+)([+\-*\/])(\d+)/);
-                     if (m2) {
-                         const a = m2[1], op = m2[2], b = m2[3];
-                         const opShow = op === '*' ? '×' : (op === '/' ? '÷' : op);
-                         text = `先算 ${a} ${opShow} ${b}`;
-                     }
                  }
              }
              if (!text) {

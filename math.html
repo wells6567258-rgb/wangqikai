@@ -371,7 +371,8 @@
         };
         
         // 分组相关变量（按题型独立设置）
-        let currentGroup = 0;
+        let currentGroup = 0; // 兼容旧逻辑：作为当前显示的组索引
+        let currentGroupMap = { oral: 0, vertical: 0, word: 0 }; // 每题型独立进度
         const groupSizeMap = {
             oral: 2,
             vertical: 1,
@@ -696,14 +697,15 @@
             container.innerHTML = '';
             
             // 计算当前组的题目范围
-            const startIndex = currentGroup * groupSizeMap.oral;
+            const group = currentGroupMap.oral;
+            const startIndex = group * groupSizeMap.oral;
             const endIndex = Math.min(startIndex + groupSizeMap.oral, oralQuestions.length);
             const currentQuestions = oralQuestions.slice(startIndex, endIndex);
             
             // 更新组指示器（标题区域）
             const groupIndicator = document.getElementById('group-indicator');
             if (groupIndicator) {
-                groupIndicator.textContent = `第 ${currentGroup + 1} 组 (${startIndex + 1}-${endIndex} 题)`;
+                groupIndicator.textContent = `第 ${group + 1} 组 (${startIndex + 1}-${endIndex} 题)`;
             }
             
             currentQuestions.forEach((q, index) => {
@@ -720,6 +722,7 @@
                                id="oral-answer-${actualIndex}"
                                placeholder="?"
                                data-index="${actualIndex}"
+                               value="${(userAnswers.oral?.[actualIndex] ?? '').toString()}"
                                oninput="recordAnswer('oral', ${actualIndex}, this.value)">
                     </div>
                 `;
@@ -931,14 +934,15 @@
             container.innerHTML = '';
             
             // 计算当前组的题目范围
-            const startIndex = currentGroup * groupSizeMap.vertical;
+            const group = currentGroupMap.vertical;
+            const startIndex = group * groupSizeMap.vertical;
             const endIndex = Math.min(startIndex + groupSizeMap.vertical, verticalQuestions.length);
             const currentQuestions = verticalQuestions.slice(startIndex, endIndex);
             
             // 添加组标题
             const groupTitle = document.createElement('div');
             groupTitle.className = 'text-xl font-bold text-center mb-6 text-green-600';
-            groupTitle.textContent = `第 ${currentGroup + 1} 组 (${startIndex + 1}-${endIndex} 题)`;
+            groupTitle.textContent = `第 ${group + 1} 组 (${startIndex + 1}-${endIndex} 题)`;
             container.appendChild(groupTitle);
             
             currentQuestions.forEach((q, index) => {
@@ -984,6 +988,7 @@
                                        id="vertical-answer-${index}"
                                        placeholder="?"
                                        data-index="${index}"
+                                       value="${(userAnswers.vertical?.[index] ?? '').toString()}"
                                        oninput="recordAnswer('vertical', ${index}, this.value)">
                             </div>
                         </div>
@@ -1010,6 +1015,7 @@
                                        id="vertical-answer-${index}"
                                        placeholder="?"
                                        data-index="${index}"
+                                       value="${(userAnswers.vertical?.[index] ?? '').toString()}"
                                        oninput="recordAnswer('vertical', ${index}, this.value)">
                             </div>
                         </div>
@@ -1036,6 +1042,7 @@
                                        id="vertical-answer-${index}"
                                        placeholder="?"
                                        data-index="${index}"
+                                       value="${(userAnswers.vertical?.[index] ?? '').toString()}"
                                        oninput="recordAnswer('vertical', ${index}, this.value)">
                             </div>
                         </div>
@@ -1174,14 +1181,15 @@
             container.innerHTML = '';
             
             // 计算当前组的题目范围
-            const startIndex = currentGroup * groupSizeMap.word;
+            const group = currentGroupMap.word;
+            const startIndex = group * groupSizeMap.word;
             const endIndex = Math.min(startIndex + groupSizeMap.word, wordQuestions.length);
             const currentQuestions = wordQuestions.slice(startIndex, endIndex);
             
             // 添加组标题
             const groupTitle = document.createElement('div');
             groupTitle.className = 'text-xl font-bold text-center mb-6 text-purple-600';
-            groupTitle.textContent = `第 ${currentGroup + 1} 组 (${startIndex + 1}-${endIndex} 题)`;
+            groupTitle.textContent = `第 ${group + 1} 组 (${startIndex + 1}-${endIndex} 题)`;
             container.appendChild(groupTitle);
             
             currentQuestions.forEach((q, index) => {
@@ -1194,12 +1202,13 @@
                         <div class="text-gray-700 mb-4">${q.question}</div>
                         <div class="flex items-center space-x-4">
                             <span class="font-medium">答案:</span>
-                            <input type="text" 
-                                   class="answer-input w-32" 
-                                   id="word-answer-${actualIndex}"
-                                   placeholder="请输入答案"
-                                   data-index="${actualIndex}"
-                                   oninput="recordAnswer('word', ${actualIndex}, this.value)">
+                        <input type="text" 
+                               class="answer-input w-32" 
+                               id="word-answer-${actualIndex}"
+                               placeholder="请输入答案"
+                               data-index="${actualIndex}"
+                               value="${(userAnswers.word?.[actualIndex] ?? '').toString()}"
+                               oninput="recordAnswer('word', ${actualIndex}, this.value)">
                             <span class="text-sm text-gray-500">单位已在题目中给出</span>
                         </div>
                     </div>
@@ -1234,7 +1243,8 @@
             nextButton.className = 'px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium';
             nextButton.id = `next-group-${mode}`;
             
-            if (currentGroup < totalGroups[mode] - 1) {
+            const group = currentGroupMap[mode] || 0;
+            if (group < totalGroups[mode] - 1) {
                 nextButton.textContent = '下一组';
                 nextButton.onclick = () => nextGroup(mode);
             } else {
@@ -1251,7 +1261,8 @@
         // 检查当前组答案
         function checkCurrentGroup(mode) {
             const groupSize = groupSizeMap[mode];
-            const startIndex = currentGroup * groupSize;
+            const group = currentGroupMap[mode] || 0;
+            const startIndex = group * groupSize;
             const endIndex = Math.min(startIndex + groupSize, 
                 mode === 'oral' ? oralQuestions.length : 
                 mode === 'vertical' ? verticalQuestions.length : wordQuestions.length);
@@ -1348,8 +1359,28 @@
             //     return;
             // }
             
-            if (currentGroup < totalGroups[mode] - 1) {
-                currentGroup++;
+            const group = (currentGroupMap[mode] || 0);
+            if (group < totalGroups[mode] - 1) {
+                currentGroupMap[mode] = group + 1;
+                currentGroup = currentGroupMap[mode];
+                clearCanvas();
+                hasDraftContent = false;
+                if (mode === 'oral') {
+                    renderOralQuestions();
+                } else if (mode === 'vertical') {
+                    renderVerticalQuestions();
+                } else {
+                    renderWordQuestions();
+                }
+            }
+        }
+
+        // 上一组
+        function prevGroup(mode) {
+            const group = (currentGroupMap[mode] || 0);
+            if (group > 0) {
+                currentGroupMap[mode] = group - 1;
+                currentGroup = currentGroupMap[mode];
                 clearCanvas();
                 hasDraftContent = false;
                 if (mode === 'oral') {
@@ -1413,6 +1444,7 @@
             completionStatus[mode] = true;
             
             // 全部正确，推进到下一阶段或完成
+            currentGroupMap[mode] = 0;
             currentGroup = 0;
             clearCanvas();
             hasDraftContent = false;
@@ -1555,11 +1587,10 @@
 
         // 切换到指定题型（新增的自由切换函数）
         function switchToSection(section) {
-            // 重置当前组为0，确保从第一组开始
-            currentGroup = 0;
-            
             // 显示指定部分
             showSection(section);
+            // 同步当前组索引到兼容变量
+            currentGroup = currentGroupMap[section] || 0;
             
             // 重新渲染当前题型的题目
             if (section === 'oral') {
@@ -2077,8 +2108,10 @@
                             <option value="word_problem">应用题</option>
                             <option value="vertical">竖式</option>
                             <option value="math_general">其他</option>
+                            <option value="24point">24点</option>
                         </select>
                         <button id="refresh-bank" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">刷新</button>
+                        <button id="validate-24" class="px-3 py-2 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200">校验24点题库</button>
                     </div>
                     <div id="bank-list" class="grid grid-cols-1 gap-3 max-h-[50vh] overflow-auto"></div>
                 </div>
@@ -2110,6 +2143,7 @@
             const bankType = document.getElementById('bank-type');
             const bankList = document.getElementById('bank-list');
             const refreshBank = document.getElementById('refresh-bank');
+            const validate24Btn = document.getElementById('validate-24');
 
             function openModal(){ modal.classList.remove('hidden'); modal.classList.add('flex'); }
             function closeModal(){ modal.classList.add('hidden'); modal.classList.remove('flex'); }
@@ -2157,6 +2191,7 @@
             });
 
             refreshBank?.addEventListener('click', renderBank);
+            validate24Btn?.addEventListener('click', validate24PointBank);
             bankType?.addEventListener('change', renderBank);
 
             function renderBank(){
@@ -2235,3 +2270,64 @@
 
 </body>
 </html>
+            // 24点校验：解析四个牌面/数字，使用DFS解算，无解则删除
+            function validate24PointBank(){
+                const items = QuestionBank.list({ subject: 'math' });
+                let checked = 0, removed = 0, solvable = 0;
+                for(const e of items){
+                    const tokens = (e.text.match(/(A|J|Q|K|10|[2-9])/gi) || []).map(x=>x.toUpperCase());
+                    if(tokens.length < 4) continue; // 非24点题或不完整
+                    const four = tokens.slice(0,4);
+                    const nums = four.map(t => {
+                        if(t==='A') return 1; if(t==='J'||t==='Q'||t==='K') return 10; return parseInt(t,10);
+                    });
+                    checked++;
+                    const res = find24Solution(nums);
+                    if(res){
+                        solvable++;
+                        // 记录解法到题库条目
+                        QuestionBank.update(e.id, { type: '24point', meta: { ...(e.meta||{}), numbers: nums, solutionExpr: res.expr, solvedAt: new Date().toISOString() } });
+                    } else {
+                        QuestionBank.remove(e.id); removed++;
+                    }
+                }
+                alert(`24点题库校验完成：共检测 ${checked} 题，保留有解 ${solvable} 题，删除无解 ${removed} 题。`);
+                renderBank();
+            }
+
+            // 复用cards页的DFS求解器（简化版拷贝）
+            function find24Solution(numbers){
+                const EPS = 1e-6;
+                function dfs(nums, exprs){
+                    if(nums.length === 1){
+                        if(Math.abs(nums[0]-24) < EPS){ return { expr: exprs[0], steps: [] }; }
+                        return null;
+                    }
+                    for(let i=0;i<nums.length;i++){
+                        for(let j=i+1;j<nums.length;j++){
+                            const a=nums[i], b=nums[j];
+                            const ea=exprs[i], eb=exprs[j];
+                            const restNums=[], restExprs=[];
+                            for(let k=0;k<nums.length;k++){
+                                if(k!==i && k!==j){ restNums.push(nums[k]); restExprs.push(exprs[k]); }
+                            }
+                            const candidates=[
+                                { val:a+b, expr:`(${ea}+${eb})` },
+                                { val:a-b, expr:`(${ea}-${eb})` },
+                                { val:b-a, expr:`(${eb}-${ea})` },
+                                { val:a*b, expr:`(${ea}*${eb})` }
+                            ];
+                            if(Math.abs(b)>EPS) candidates.push({ val:a/b, expr:`(${ea}/${eb})` });
+                            if(Math.abs(a)>EPS) candidates.push({ val:b/a, expr:`(${eb}/${ea})` });
+                            for(const cand of candidates){
+                                const nextNums = restNums.concat([cand.val]);
+                                const nextExprs = restExprs.concat([cand.expr]);
+                                const res = dfs(nextNums, nextExprs);
+                                if(res) return res;
+                            }
+                        }
+                    }
+                    return null;
+                }
+                return dfs(numbers, numbers.map(n=>String(n)));
+            }

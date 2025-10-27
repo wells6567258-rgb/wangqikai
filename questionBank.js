@@ -21,6 +21,9 @@
     if(!text) return 'unknown';
     const t = text.trim();
     if(subject === 'math'){
+      // 24点题型：匹配四个牌面或数字（A J Q K 2-10），可含空格/逗号/中文逗号
+      const tokens = (t.match(/(A|J|Q|K|10|[2-9])/gi) || []).map(x=>x.toUpperCase());
+      if(tokens.length >= 4) return '24point';
       if(/[+\-×x*÷/]/.test(t) && /\d/.test(t)) return 'arithmetic';
       if(/(应用题|米|千米|元|角|分|时间|速度|平均)/.test(t)) return 'word_problem';
       if(/(竖式|进位|退位)/.test(t)) return 'vertical';

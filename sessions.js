@@ -108,13 +108,29 @@
       try {
         const s = JSON.parse(localStorage.getItem(KEY) || '{}');
         if(!s) return;
+        // 跨天自动失效：仅当日期为今天才恢复
+        if(s.date && s.date !== TODAY){
+          localStorage.removeItem(KEY);
+          return;
+        }
         if(s.completionStatus && typeof window.completionStatus !== 'undefined') window.completionStatus = s.completionStatus;
         if(s.scores && typeof window.scores !== 'undefined') window.scores = s.scores;
         if(typeof s.currentSection === 'string' && typeof window.currentSection !== 'undefined') window.currentSection = s.currentSection;
-        if(typeof s.currentGroup === 'number' && typeof window.currentGroup !== 'undefined') window.currentGroup = s.currentGroup;
+        if(s.currentGroupMap && typeof window.currentGroupMap !== 'undefined') window.currentGroupMap = s.currentGroupMap;
+        if(s.userAnswers && typeof window.userAnswers !== 'undefined') window.userAnswers = s.userAnswers;
+        // 兼容旧逻辑：同步当前组索引
+        if(typeof window.currentGroup !== 'undefined') {
+          const cs = window.currentSection || 'oral';
+          window.currentGroup = (window.currentGroupMap?.[cs] ?? 0);
+        }
         safe('updateProgressIndicator')?.(window.currentSection);
         safe('updateOverallProgress')?.();
-        safe('showSection')?.(window.currentSection || 'oral');
+        // 显示并重新渲染当前题型，以便预填答案与组进度恢复
+        const sec = window.currentSection || 'oral';
+        safe('showSection')?.(sec);
+        if(sec==='oral') safe('renderOralQuestions')?.();
+        else if(sec==='vertical') safe('renderVerticalQuestions')?.();
+        else if(sec==='word') safe('renderWordQuestions')?.();
       } catch(e){}
     }
     function save(){
@@ -123,7 +139,9 @@
           completionStatus: window.completionStatus,
           scores: window.scores,
           currentSection: window.currentSection,
-          currentGroup: window.currentGroup
+          currentGroupMap: window.currentGroupMap,
+          userAnswers: window.userAnswers,
+          date: TODAY
         };
         localStorage.setItem(KEY, JSON.stringify(payload));
         const data = getData(); ensureCheckIn(data);
